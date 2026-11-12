@@ -35,8 +35,8 @@ android {
         applicationId = "com.panglink.companion"
         minSdk = 24
         targetSdk = 34
-        versionCode = (findProperty("versionCodeOverride") as String?)?.toIntOrNull() ?: 5
-        versionName = "2.7.0"
+        versionCode = (findProperty("versionCodeOverride") as String?)?.toIntOrNull() ?: 6
+        versionName = "1.0"
     }
 
     signingConfigs {

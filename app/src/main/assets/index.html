@@ -1,0 +1,2190 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GREYCOAT - Companion App</title>
+    <!-- Aset lokal: UI tetap tampil walau HP offline -->
+    <script src="vendor/tailwind.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700;800&family=Space+Grotesk:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <!-- Leaflet CSS & JS untuk Peta Lokasi Parkir Terakhir (lokal) -->
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+    <script src="vendor/leaflet/leaflet.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background-color: #0b0b0b;
+            color: #ffffff;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .font-mono-tech {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .accent-text { color: #facc15; }
+        .accent-bg { background-color: #facc15; }
+        .accent-border { border-color: #facc15; }
+        .card-dark { background-color: #141414; border: 1px solid #242424; }
+        .trip-box { background-color: #121212; border: 1px solid #262626; }
+        
+        .scrollable-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-bottom: 98px;
+        }
+        .scrollable-content::-webkit-scrollbar { width: 4px; height: 4px; }
+        .scrollable-content::-webkit-scrollbar-track { background: transparent; }
+        .scrollable-content::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+
+        /* Peta Lokasi Parkir Dark Filter */
+        .leaflet-container {
+            background: #121212 !important;
+            font-family: 'Space Grotesk', sans-serif;
+        }
+        .parking-map-dark .leaflet-tile-pane {
+            filter: invert(92%) hue-rotate(185deg) brightness(95%) contrast(92%);
+        }
+        .leaflet-control-attribution { display: none !important; }
+
+        .hidden-tab { display: none !important; }
+    </style>
+
+<!-- ======================= CSS KHUSUS MODUL SERVIS 17 KOMPONEN ======================= -->
+<style>
+    .srv-scroll::-webkit-scrollbar { width: 5px; }
+    .srv-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); border-radius: 6px; }
+    .srv-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 6px; }
+
+    .srv-range {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 6px;
+        border-radius: 999px;
+        outline: none;
+        cursor: pointer;
+    }
+    .srv-range::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 26px;
+        height: 26px;
+        border-radius: 999px;
+        background: #ffffff;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.65);
+        cursor: pointer;
+        border: 2px solid #e4e4e7;
+    }
+</style>
+
+</head>
+<body>
+
+    <!-- ======================= MODAL 1: AKUN GMAIL & PAIRING MOBIL ======================= -->
+    <div id="account-modal" class="hidden-tab fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-5">
+        <div class="card-dark w-full max-w-md rounded-3xl p-6 space-y-5 border border-zinc-800 shadow-2xl">
+            <div class="flex justify-between items-center">
+                <div>
+                    <div class="text-[10px] font-extrabold tracking-widest text-amber-400 uppercase">SINKRONISASI CLOUD OTOMATIS</div>
+                    <h3 class="text-xl font-black text-white mt-0.5">Akun Gmail & Pairing Mobil</h3>
+                </div>
+                <button onclick="closeAccountModal()" class="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 font-bold text-xs">✕</button>
+            </div>
+
+            <div class="bg-zinc-900/80 p-4 rounded-2xl border border-zinc-800 space-y-2.5">
+                <div class="flex items-center gap-2">
+                    <span class="text-sm">📧</span>
+                    <span class="text-xs font-extrabold text-white">Login dengan Akun Gmail</span>
+                </div>
+                <p class="text-[11px] text-zinc-400 leading-relaxed">
+                    Masukkan alamat Gmail yang sama dengan Headunit. Semua mobil Anda (Mobil A, Mobil B) otomatis terhubung tanpa tercampur.
+                </p>
+                <input id="modal-gmail-input" type="email" placeholder="nama.anda@gmail.com" class="w-full px-3.5 py-2.5 rounded-xl bg-black border border-zinc-700 text-white text-xs font-bold focus:outline-none focus:border-amber-400">
+                <button onclick="saveGmailAndSync()" class="w-full py-2.5 bg-amber-400 text-black font-extrabold rounded-xl text-xs tracking-wider">
+                    SIMPAN & HUBUNGKAN GMAIL
+                </button>
+            </div>
+
+            <div class="bg-zinc-900/80 p-4 rounded-2xl border border-zinc-800 space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-extrabold text-white">🚗 Tambah Mobil via Kode ID</span>
+                    <span class="text-[10px] text-amber-400 font-bold">Lihat di Setelan Launcher</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <input id="modal-car-name" type="text" placeholder="Nama (mis: Mobil A)" class="w-full px-3 py-2.5 rounded-xl bg-black border border-zinc-700 text-white text-xs font-bold">
+                    <input id="modal-car-code" type="text" placeholder="Kode (mis: GC-4829)" class="w-full px-3 py-2.5 rounded-xl bg-black border border-zinc-700 text-amber-400 text-xs font-extrabold uppercase">
+                </div>
+                <button onclick="addVehicleByCode()" class="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-white font-extrabold rounded-xl text-xs tracking-wider">
+                    + TAMBAHKAN KENDARAAN
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================= HALAMAN PENUH: SEMUA RIWAYAT PERJALANAN (SESUAI GAMBAR REFERENSI 2) ======================= -->
+    <div id="all-trips-overlay" class="hidden-tab fixed inset-0 z-50 bg-[#0b0b0b] flex flex-col">
+        <!-- Header Halaman Perjalanan -->
+        <div class="px-5 pt-7 pb-4 border-b border-zinc-900 flex justify-between items-end bg-[#0b0b0b]">
+            <div>
+                <button onclick="closeAllTripsModal()" class="text-[11px] font-mono-tech font-bold text-zinc-400 hover:text-white flex items-center gap-1.5 mb-2">
+                    <span>←</span> <span>KEMBALI KE STATISTIK</span>
+                </button>
+                <div id="all-trips-car-subtitle" class="text-[10px] font-mono-tech text-zinc-500 tracking-widest uppercase">GREYCOAT</div>
+                <div class="text-3xl font-black tracking-tight text-amber-400 uppercase mt-0.5">PERJALANAN</div>
+            </div>
+            <button onclick="toggleDateFilterPanel()" id="btn-tanggal-filter" class="px-4 py-2 bg-[#141414] border border-zinc-700 rounded text-xs font-mono-tech font-bold tracking-widest text-zinc-200 uppercase">
+                TANGGAL
+            </button>
+        </div>
+
+        <!-- Panel Pencarian Tanggal & Sortir (Muncul saat tombol TANGGAL ditekan) -->
+        <div id="date-filter-panel" class="hidden-tab px-5 py-4 bg-[#121212] border-b border-zinc-800 space-y-3">
+            <div class="flex justify-between items-center">
+                <span class="text-[11px] font-mono-tech font-bold text-amber-400 uppercase tracking-wider">FILTER & SORTIR TANGGAL</span>
+                <button onclick="resetDateFilter()" class="text-[11px] font-mono-tech text-zinc-400 underline">Reset Semua</button>
+            </div>
+            <div class="grid grid-cols-2 gap-2.5">
+                <div>
+                    <label class="text-[10px] text-zinc-400 block mb-1 font-mono-tech">Cari Tanggal Spesifik:</label>
+                    <input id="filter-date-input" type="date" onchange="applyTripsFilter()" class="w-full px-3 py-2 rounded bg-black border border-zinc-700 text-white text-xs font-mono-tech">
+                </div>
+                <div>
+                    <label class="text-[10px] text-zinc-400 block mb-1 font-mono-tech">Urutkan Berdasarkan:</label>
+                    <select id="filter-sort-select" onchange="applyTripsFilter()" class="w-full px-3 py-2 rounded bg-black border border-zinc-700 text-white text-xs font-mono-tech">
+                        <option value="NEWEST">Waktu Terbaru</option>
+                        <option value="OLDEST">Waktu Terlama</option>
+                        <option value="LONGEST_DIST">Jarak Terjauh</option>
+                        <option value="LONGEST_DUR">Durasi Terlama</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Daftar Perjalanan Dikelompokkan per Hari (HARI INI, KEMARIN, Tanggal) -->
+        <div id="all-trips-list-container" class="flex-1 overflow-y-auto px-5 py-5 space-y-6">
+        </div>
+    </div>
+
+    <!-- HEADER ATAS: AKUN GMAIL & PEMILIH MOBIL -->
+    <div class="px-5 pt-5 pb-2 bg-[#0b0b0b] border-b border-zinc-900/80">
+        <div class="flex justify-between items-center mb-2.5">
+            <div class="flex items-center gap-2">
+                <span id="header-sync-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span id="header-gmail-text" class="text-[11px] font-bold text-zinc-400 truncate max-w-[200px]">Belum Login Gmail</span>
+            </div>
+            <button onclick="openAccountModal()" class="text-[10px] font-extrabold text-amber-400 bg-amber-400/10 border border-amber-400/30 px-2.5 py-1 rounded-lg">
+                👤 Akun & +Mobil
+            </button>
+        </div>
+
+        <!-- Bar Pilihan Kendaraan -->
+        <div id="vehicle-selector-bar" class="flex gap-2 overflow-x-auto pb-1 scrollbar-none text-xs font-extrabold"></div>
+    </div>
+
+    <!-- KONTEN UTAMA -->
+    <div class="scrollable-content" id="main-content-area">
+
+        <!-- ======================= TAB 1: GARASI & REKAP BULANAN + PETA LOKASI PARKIR ======================= -->
+        <div id="view-garasi" class="px-5 pt-4 pb-4">
+            <div id="active-car-label-1" class="text-[10px] text-zinc-500 tracking-widest font-extrabold uppercase mb-0.5">GREYCOAT</div>
+            <div class="text-3xl font-black tracking-wide text-amber-400 mb-4">REKAP BULANAN</div>
+
+            <!-- Filter Bulan Horizontal Dinamis -->
+            <div id="rekap-month-pills" class="flex gap-2.5 overflow-x-auto pb-4 scrollbar-none text-xs font-extrabold"></div>
+
+            <!-- Kartu Rekap Utama -->
+            <div class="card-dark p-6 rounded-3xl space-y-5 shadow-xl relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
+                
+                <div>
+                    <div class="text-6xl font-black tracking-tighter text-white" id="hp-rekap-dist">
+                        0,0 <span class="text-3xl font-bold text-amber-400">KM</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-zinc-900/70 p-4 rounded-2xl border border-zinc-800/80">
+                        <div class="text-[10px] tracking-widest text-zinc-500 font-extrabold mb-1">PERJALANAN</div>
+                        <div class="text-2xl font-black text-white" id="hp-rekap-trips">0</div>
+                    </div>
+                    <div class="bg-zinc-900/70 p-4 rounded-2xl border border-zinc-800/80">
+                        <div class="text-[10px] tracking-widest text-zinc-500 font-extrabold mb-1">WAKTU JALAN</div>
+                        <div class="text-xl font-black text-white" id="hp-rekap-time">0 j 0 mnt</div>
+                    </div>
+                    <div class="bg-zinc-900/70 p-4 rounded-2xl border border-zinc-800/80">
+                        <div class="text-[10px] tracking-widest text-zinc-500 font-extrabold mb-1">HARI AKTIF</div>
+                        <div class="text-2xl font-black text-white" id="hp-rekap-days">0</div>
+                    </div>
+                    <div class="bg-zinc-900/70 p-4 rounded-2xl border border-zinc-800/80">
+                        <div class="text-[10px] tracking-widest text-zinc-500 font-extrabold mb-1">TERJAUH</div>
+                        <div class="text-2xl font-black text-white" id="hp-rekap-maxdist">0 km</div>
+                    </div>
+                </div>
+
+                <button onclick="shareRekap()" class="w-full py-4 mt-1 bg-amber-400 text-black font-extrabold rounded-2xl text-sm transition tracking-wider shadow-[0_4px_20px_rgba(250,204,21,0.25)]">
+                    BAGIKAN REKAP
+                </button>
+            </div>
+
+            <!-- KARTU LOKASI PARKIR TERAKHIR DENGAN TAMPILAN PETA INTERAKTIF (POIN 2) -->
+            <div class="mt-5 card-dark rounded-3xl overflow-hidden border border-zinc-800 shadow-lg">
+                <div class="p-4 flex items-center justify-between border-b border-zinc-800/80">
+                    <div>
+                        <div class="text-[10px] tracking-widest text-amber-400 font-extrabold uppercase">LOKASI PARKIR TERAKHIR</div>
+                        <div class="text-xs font-bold text-white mt-0.5" id="hp-parking-loc">Menunggu titik koordinat parkir dari Headunit</div>
+                    </div>
+                    <div class="flex gap-1.5">
+                        <button onclick="toggleParkingMapTheme()" id="btn-park-theme" class="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700 text-[10px] font-bold text-zinc-300">🌙</button>
+                        <button onclick="centerParkingMap()" class="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700 text-[10px] font-bold text-zinc-300">🎯 Pusatkan</button>
+                    </div>
+                </div>
+
+                <!-- Kanvas Peta Lokasi Parkir -->
+                <div class="relative w-full h-52 bg-zinc-950">
+                    <div id="hp-parking-map" class="parking-map-dark w-full h-full z-10"></div>
+                </div>
+
+                <div class="p-4 bg-zinc-900/60 flex items-center justify-between">
+                    <div class="text-[11px] text-zinc-400 font-medium truncate pr-2" id="hp-parking-time">
+                        Tersinkron otomatis saat mesin dimatikan / parkir
+                    </div>
+                    <button onclick="openLastParkingInMaps()" class="px-3.5 py-2 rounded-xl bg-amber-400 text-black text-[11px] font-extrabold whitespace-nowrap shadow">
+                        🗺️ Buka Rute Maps ↗
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Status Live Cloud Sync -->
+            <div class="mt-4 bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span id="net-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                    <span id="net-text" class="text-xs font-bold text-zinc-300">Auto-Sync Cloud Aktif</span>
+                </div>
+                <button onclick="pullCloudData(true)" class="text-xs font-bold text-amber-400 bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-700">↻ Segarkan</button>
+            </div>
+        </div>
+
+        <!-- ======================= TAB 2: STATISTIK & PERJALANAN TERBARU (POIN 1 & POIN 3) ======================= -->
+        <div id="view-statistik" class="px-5 pt-4 pb-6 hidden-tab">
+            <div class="flex justify-between items-end mb-4">
+                <div>
+                    <div id="active-car-label-2" class="text-[10px] text-zinc-500 tracking-widest font-extrabold uppercase mb-0.5">GREYCOAT</div>
+                    <div class="text-3xl font-black tracking-wide text-amber-400">STATISTIK</div>
+                </div>
+                <!-- Toggle MINGGUAN / BULANAN yang Berfungsi Penuh -->
+                <div class="flex bg-zinc-900 p-1 rounded-xl border border-zinc-800 text-[10px] font-extrabold">
+                    <button onclick="setStatPeriod('WEEKLY')" id="btn-period-weekly" class="px-4 py-2 bg-amber-400 text-black rounded-lg transition">MINGGUAN</button>
+                    <button onclick="setStatPeriod('MONTHLY')" id="btn-period-monthly" class="px-4 py-2 text-zinc-400 rounded-lg transition">BULANAN</button>
+                </div>
+            </div>
+
+            <div class="card-dark p-6 rounded-3xl space-y-5">
+                <!-- Grafik Batang dengan Tanggal Berurutan Sesuai Kalender Asli (Bukan Tanggal Acak) -->
+                <div class="relative h-48 border-b border-zinc-800 flex flex-col justify-between pb-2 mt-1">
+                    <div class="flex justify-between items-center">
+                        <span id="chart-max-label" class="text-[10px] font-mono-tech font-bold text-zinc-500">50 km</span>
+                        <span id="chart-today-summary" class="text-[10px] font-mono-tech font-bold text-amber-400">Hari ini: 0 perjalanan • 0,0 km</span>
+                    </div>
+                    <!-- Bar Container Dinamis -->
+                    <div id="stat-bars-container" class="flex items-end justify-between h-32 px-2 pt-6 gap-2"></div>
+                    <!-- Label Tanggal Sumbu X Berurutan -->
+                    <div id="stat-labels-container" class="flex justify-between text-[10px] font-mono-tech font-bold text-zinc-400 px-1 pt-2"></div>
+                </div>
+
+                <div class="flex justify-between items-center">
+                    <div id="stat-range-subtitle" class="text-[11px] text-zinc-400 font-bold">7 hari terakhir (Berurutan)</div>
+                    <div id="stat-range-dates" class="text-[10px] font-mono-tech text-zinc-500"></div>
+                </div>
+
+                <!-- Grid Metrik Statistik -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-zinc-900/70 p-4 rounded-2xl border border-zinc-800/80">
+                        <div class="text-[10px] tracking-widest text-zinc-500 font-extrabold mb-1">JARAK</div>
+                        <div class="text-xl font-black text-white" id="hp-stat-dist">0 km</div>
+                    </div>
+                    <div class="bg-zinc-900/70 p-4 rounded-2xl border border-zinc-800/80">
+                        <div class="text-[10px] tracking-widest text-zinc-500 font-extrabold mb-1">WAKTU JALAN</div>
+                        <div class="text-xl font-black text-white" id="hp-stat-time">0 j 0 mnt</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="bg-zinc-900/70 p-3 rounded-2xl border border-zinc-800/80 text-center">
+                        <div class="text-[9px] tracking-widest text-zinc-500 font-extrabold mb-1">PERJALANAN</div>
+                        <div class="text-lg font-black text-white" id="hp-stat-trips">0</div>
+                    </div>
+                    <div class="bg-zinc-900/70 p-3 rounded-2xl border border-zinc-800/80 text-center">
+                        <div class="text-[9px] tracking-widest text-zinc-500 font-extrabold mb-1">RATA-RATA</div>
+                        <div class="text-base font-black text-white" id="hp-stat-avg">0 km/j</div>
+                    </div>
+                    <div class="bg-zinc-900/70 p-3 rounded-2xl border border-zinc-800/80 text-center">
+                        <div class="text-[9px] tracking-widest text-zinc-500 font-extrabold mb-1">KEC MAKS</div>
+                        <div class="text-base font-black text-white" id="hp-stat-max">0 km/j</div>
+                    </div>
+                </div>
+
+                <!-- Filter Kategori (SEMUA / KERJA / PRIBADI) -->
+                <div class="pt-1 space-y-4">
+                    <div class="flex bg-zinc-900 p-1 rounded-xl border border-zinc-800 text-[11px] font-extrabold">
+                        <button onclick="setCategoryFilter('ALL')" id="cat-filter-ALL" class="flex-1 py-2.5 bg-amber-400 text-black rounded-lg transition">SEMUA</button>
+                        <button onclick="setCategoryFilter('KERJA')" id="cat-filter-KERJA" class="flex-1 py-2.5 text-zinc-400 rounded-lg transition">KERJA</button>
+                        <button onclick="setCategoryFilter('PRIBADI')" id="cat-filter-PRIBADI" class="flex-1 py-2.5 text-zinc-400 rounded-lg transition">PRIBADI</button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="exportData('CSV')" class="py-3.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white font-extrabold rounded-2xl text-[11px] tracking-wider transition">
+                            EKSPOR CSV
+                        </button>
+                        <button onclick="exportData('PDF')" class="py-3.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white font-extrabold rounded-2xl text-[11px] tracking-wider transition">
+                            EKSPOR PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ======================= BAGIAN PERJALANAN TERBARU (PERSIS GAMBAR REFERENSI 1) ======================= -->
+            <div class="mt-7">
+                <div class="flex justify-between items-center mb-3 px-0.5">
+                    <div class="text-sm font-mono-tech font-extrabold tracking-[0.2em] text-amber-400 uppercase">
+                        PERJALANAN TERBARU
+                    </div>
+                    <div id="recent-trips-today-badge" class="text-[11px] font-mono-tech text-zinc-400">
+                        Hari ini: 0 sesi
+                    </div>
+                </div>
+
+                <div class="trip-box rounded-lg overflow-hidden shadow-xl">
+                    <!-- 3 Perjalanan Terbaru Akan Dirender di Sini -->
+                    <div id="recent-trips-box-body"></div>
+
+                    <!-- Tombol LIHAT SEMUA -> -->
+                    <button onclick="openAllTripsModal()" class="w-full px-5 py-4 text-left border-t border-[#262626] hover:bg-zinc-900/60 transition flex items-center justify-between">
+                        <span class="font-mono-tech text-sm font-extrabold tracking-[0.18em] text-amber-400 uppercase">LIHAT SEMUA &rarr;</span>
+                        <span id="total-logged-sessions-text" class="font-mono-tech text-[11px] text-zinc-500">0 riwayat</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+                <!-- ======================= TAB 3: SERVIS 17 KOMPONEN (SESUAI GAMBAR REFERENSI 1, 2, 3) ======================= -->
+        <div id="view-servis" class="px-5 pt-4 pb-6 hidden-tab">
+            <!-- Tampilan 1: Daftar Kategori 2 Kolom (Perlu Perhatian, Periksa Segera, Sehat) -->
+            <div id="srv-dashboard-view">
+                <div class="flex justify-between items-end mb-4">
+                    <div>
+                        <div id="active-car-label-3" class="text-[10px] text-zinc-500 tracking-widest font-extrabold uppercase mb-0.5">GREYCOAT</div>
+                        <div class="text-3xl font-black tracking-wide text-amber-400">SERVIS</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-[10px] text-zinc-500 font-bold">ODOMETER</div>
+                        <div id="hp-odo-val" class="text-base font-black text-white">0 <span class="text-xs text-amber-400">KM</span></div>
+                    </div>
+                </div>
+                <div id="hp-odo-time" class="text-[10px] text-zinc-500 mb-4">Tersinkron otomatis dari Headunit</div>
+                <span id="servis-code-badge" class="hidden"></span>
+
+                <!-- Container Grup Kategori 2 Kolom -->
+                <div id="srv-categories-scroll" class="space-y-6"></div>
+            </div>
+
+            <!-- Tampilan 2: Detail Komponen & Sesuaikan Umur / Edit Interval (Persis Gambar 28 & 29) -->
+            <div id="srv-detail-view" class="hidden">
+                <!-- Tombol Back -->
+                <button onclick="closeServiceCompDetail()" class="mb-4 text-zinc-200 text-2xl font-bold flex items-center gap-2">&larr;</button>
+
+                <!-- Header Icon & Nama Komponen -->
+                <div class="flex items-center gap-4 mb-5">
+                    <div id="srv-detail-icon" class="w-14 h-14 flex items-center justify-center shrink-0"></div>
+                    <div>
+                        <h2 id="srv-detail-title" class="text-2xl font-extrabold text-white">Filter Udara</h2>
+                        <div id="srv-detail-last" class="text-xs text-zinc-400 mt-0.5">Servis Terakhir: <strong class="text-white">Tidak tersedia</strong></div>
+                    </div>
+                </div>
+
+                <!-- Segmented Pill: Saat Ini | Riwayat -->
+                <div class="flex bg-[#1c1c1e] p-1 rounded-full border border-zinc-800 mb-5">
+                    <button onclick="switchServiceDetailTab('CURRENT')" id="srv-tab-current" class="flex-1 py-2.5 rounded-full bg-[#636366] text-white text-xs font-extrabold">Saat Ini</button>
+                    <button onclick="switchServiceDetailTab('HISTORY')" id="srv-tab-history" class="flex-1 py-2.5 rounded-full text-zinc-400 text-xs font-bold">Riwayat</button>
+                </div>
+
+                <!-- BODY TAB SAAT INI -->
+                <div id="srv-detail-body-current" class="space-y-4">
+                    <!-- Kartu Saran Perawatan -->
+                    <div class="bg-[#1c1c1e] border border-zinc-800/90 rounded-3xl p-5">
+                        <div class="flex items-center gap-2 text-xs font-extrabold text-[#38bdf8] tracking-wider uppercase mb-2">
+                            <span>💡</span>
+                            <span>SARAN PERAWATAN</span>
+                        </div>
+                        <p id="srv-detail-advice" class="text-xs text-zinc-300 leading-relaxed"></p>
+                    </div>
+
+                    <!-- MODE LIHAT (Gambar 29) -->
+                    <div id="srv-card-view-mode" class="bg-[#1c1c1e] border border-zinc-800/90 rounded-3xl p-5 space-y-4">
+                        <div id="srv-view-km-block">
+                            <div class="flex justify-between items-baseline mb-2">
+                                <span class="text-xs text-zinc-400">Sisa Penggunaan: <strong id="srv-view-rem-km" class="text-white text-sm font-extrabold">45.635 km</strong></span>
+                                <span id="srv-view-km-pct" class="text-xs text-zinc-400 font-bold">91%</span>
+                            </div>
+                            <div class="w-full h-2 bg-[#2c2c2e] rounded-full overflow-hidden">
+                                <div id="srv-view-km-bar" class="h-full bg-emerald-500 rounded-full"></div>
+                            </div>
+                            <div class="h-[1px] bg-zinc-800 mt-4"></div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between items-baseline mb-2">
+                                <span class="text-xs text-zinc-400">📅 Terbaik Hingga <strong id="srv-view-best-date" class="text-white text-sm font-extrabold">23 Jun 2027 &bull; 224hr</strong></span>
+                                <span id="srv-view-time-pct" class="text-xs text-zinc-400 font-bold">31%</span>
+                            </div>
+                            <div class="w-full h-2 bg-[#2c2c2e] rounded-full overflow-hidden">
+                                <div id="srv-view-time-bar" class="h-full bg-amber-400 rounded-full"></div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start gap-2 text-[11px] text-zinc-400 leading-relaxed pt-1">
+                            <span class="w-4 h-4 rounded-full bg-zinc-400 text-black font-black text-[10px] flex items-center justify-center shrink-0 mt-0.5">i</span>
+                            <span>Kami meninjau metrik terendah di dashboard untuk menentukan kondisi komponen.</span>
+                        </div>
+
+                        <button onclick="openAdjustAgeEditor()" class="w-full py-3.5 rounded-full bg-[#2c2c2e] text-[#38bdf8] text-xs font-extrabold flex items-center justify-center gap-2">
+                            <span>Sesuaikan Umur</span>
+                            <span>&#9662;</span>
+                        </button>
+                    </div>
+
+                    <!-- MODE EDIT: SESUAIKAN UMUR & EDIT INTERVAL (Gambar 28) -->
+                    <div id="srv-card-edit-mode" class="hidden bg-[#1c1c1e] border border-sky-500/40 rounded-3xl p-5 space-y-5">
+                        <div id="srv-edit-km-block" class="space-y-3 pb-4 border-b border-zinc-800">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <div class="text-sm font-extrabold text-white">Interval Servis</div>
+                                    <div id="srv-edit-rec-km" class="text-[11px] text-zinc-400">Direkomendasikan: 50.000 km</div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <input id="srv-input-interval-km" type="number" step="500" min="1000" oninput="onEditIntervalKmInput(this.value)" class="w-24 py-2 px-3 rounded-xl bg-black border border-zinc-700 text-white font-extrabold text-sm text-center">
+                                    <span class="text-xs text-zinc-400 font-bold">km</span>
+                                </div>
+                            </div>
+
+                            <div class="flex justify-between items-baseline">
+                                <span class="text-xs text-zinc-400">Sisa Penggunaan: <strong id="srv-edit-rem-km-label" class="text-white text-sm font-extrabold">45.600 km</strong></span>
+                                <span id="srv-edit-km-pct-label" class="text-xs text-zinc-400 font-bold">91%</span>
+                            </div>
+
+                            <div class="text-[11px] text-zinc-400">Sesuaikan sisa penggunaan agar cocok dengan kondisi komponen Anda.</div>
+
+                            <div class="py-2">
+                                <input id="srv-slider-rem-km" type="range" min="0" max="50000" step="100" oninput="onSlideRemainingKm(this.value)" class="srv-range">
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <div class="text-sm font-extrabold text-white">Interval Waktu</div>
+                                    <div id="srv-edit-rec-months" class="text-[11px] text-zinc-400">Direkomendasikan: 24 bulan</div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <input id="srv-input-interval-months" type="number" step="1" min="1" max="180" oninput="onEditIntervalMonthsInput(this.value)" class="w-20 py-2 px-3 rounded-xl bg-black border border-zinc-700 text-white font-extrabold text-sm text-center">
+                                    <span class="text-xs text-zinc-400 font-bold">bln</span>
+                                </div>
+                            </div>
+
+                            <div class="flex justify-between items-baseline">
+                                <span class="text-xs text-zinc-400">📅 Terbaik Hingga <strong id="srv-edit-best-date-label" onclick="document.getElementById('srv-hidden-date-picker').showPicker ? document.getElementById('srv-hidden-date-picker').showPicker() : null" class="text-[#38bdf8] text-sm font-extrabold underline cursor-pointer">23 Jun 2027 &bull; 224hr</strong></span>
+                                <input id="srv-hidden-date-picker" type="date" onchange="onPickTargetDate(this.value)" class="absolute opacity-0 pointer-events-none w-px h-px">
+                                <span id="srv-edit-time-pct-label" class="text-xs text-zinc-400 font-bold">31%</span>
+                            </div>
+
+                            <div class="text-[11px] text-zinc-400">Sesuaikan sisa penggunaan agar cocok dengan kondisi komponen Anda.</div>
+
+                            <div class="py-2">
+                                <input id="srv-slider-rem-days" type="range" min="0" max="730" step="1" oninput="onSlideRemainingDays(this.value)" class="srv-range">
+                            </div>
+                        </div>
+
+                        <div class="flex items-start gap-2 text-[11px] text-zinc-400 leading-relaxed">
+                            <span class="w-4 h-4 rounded-full bg-zinc-400 text-black font-black text-[10px] flex items-center justify-center shrink-0 mt-0.5">i</span>
+                            <span>Umur komponen adalah perkiraan umum. Rujuk manual untuk informasi akurat.</span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3 pt-1">
+                            <button onclick="cancelAdjustAgeEditor()" class="py-3.5 rounded-full bg-[#2c2c2e] text-zinc-300 text-xs font-extrabold">Urungkan</button>
+                            <button onclick="saveAdjustAgeEditor()" class="py-3.5 rounded-full bg-[#0ea5e9] text-white text-xs font-extrabold shadow-lg">Simpan</button>
+                        </div>
+                    </div>
+
+                    <!-- Kartu Catatan -->
+                    <div class="bg-[#1c1c1e] border border-zinc-800/90 rounded-3xl p-5 space-y-3">
+                        <div class="flex items-center gap-2 text-sm font-extrabold text-white">
+                            <span>📄</span>
+                            <span>Catatan</span>
+                        </div>
+                        <textarea id="srv-detail-note" rows="3" oninput="saveCurrentServiceNote(this.value)" placeholder="Tambah catatan tentang komponen ini..." class="w-full p-3.5 rounded-2xl bg-black border border-zinc-800 text-white text-xs resize-none focus:outline-none focus:border-sky-500"></textarea>
+                    </div>
+
+                    <!-- Tombol Servis Komponen -->
+                    <button onclick="markComponentServicedNow()" class="w-full py-4 rounded-full bg-[#0ea5e9] text-white text-sm font-extrabold shadow-[0_6px_22px_rgba(14,165,233,0.4)]">
+                        Servis Komponen
+                    </button>
+                </div>
+
+                <!-- BODY TAB RIWAYAT -->
+                <div id="srv-detail-body-history" class="hidden space-y-3">
+                    <div id="srv-history-list" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <!-- Modal Tambah Komponen -->
+            <div id="srv-add-comp-modal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-5">
+                <div class="bg-[#1c1c1e] w-full max-w-sm rounded-3xl p-6 border border-zinc-700 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-base font-extrabold text-white">Tambah Komponen Servis</h3>
+                        <button onclick="closeAddServiceCompModal()" class="text-zinc-400 font-bold">✕</button>
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-zinc-400 block mb-1">Nama Komponen:</label>
+                        <input id="new-comp-name" type="text" placeholder="Contoh: Oli Gardan / V-Belt" class="w-full px-3.5 py-2.5 rounded-xl bg-black border border-zinc-700 text-white text-xs font-bold">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2.5">
+                        <div>
+                            <label class="text-[11px] text-zinc-400 block mb-1">Interval KM:</label>
+                            <input id="new-comp-km" type="number" value="20000" step="1000" class="w-full px-3 py-2.5 rounded-xl bg-black border border-zinc-700 text-white text-xs font-bold">
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-zinc-400 block mb-1">Interval Bulan:</label>
+                            <input id="new-comp-months" type="number" value="12" min="1" class="w-full px-3 py-2.5 rounded-xl bg-black border border-zinc-700 text-white text-xs font-bold">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2.5 pt-2">
+                        <button onclick="closeAddServiceCompModal()" class="py-3 rounded-full bg-zinc-800 text-zinc-300 text-xs font-extrabold">Batal</button>
+                        <button onclick="confirmAddServiceComp()" class="py-3 rounded-full bg-[#0ea5e9] text-white text-xs font-extrabold">Tambahkan</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ======================= BOTTOM NAVIGATION DOCK ======================= -->
+    <div class="fixed bottom-0 left-0 right-0 bg-[#0b0b0b]/95 backdrop-blur-md border-t border-zinc-900 pb-5 pt-3 px-6 z-40">
+        <div class="flex justify-around items-center">
+            <button onclick="switchTab('garasi')" id="nav-garasi" class="flex flex-col items-center gap-1.5 w-16 transition">
+                <svg class="w-6 h-6 text-amber-400" id="icon-garasi" fill="currentColor" viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.22.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.85 7h10.29l1.04 3H5.81l1.04-3zM19 17H5v-4.66l.12-.34h13.76l.12.34V17z"/></svg>
+                <span class="text-[10px] font-extrabold tracking-wider text-amber-400" id="text-garasi">GARASI</span>
+            </button>
+            <button onclick="switchTab('statistik')" id="nav-statistik" class="flex flex-col items-center gap-1.5 w-16 transition">
+                <svg class="w-6 h-6 text-zinc-500" id="icon-statistik" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                <span class="text-[10px] font-extrabold tracking-wider text-zinc-500" id="text-statistik">STATISTIK</span>
+            </button>
+            <button onclick="switchTab('servis')" id="nav-servis" class="flex flex-col items-center gap-1.5 w-16 transition">
+                <svg class="w-6 h-6 text-zinc-500" id="icon-servis" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                <span class="text-[10px] font-extrabold tracking-wider text-zinc-500" id="text-servis">SERVIS</span>
+            </button>
+            <button onclick="openAccountModal()" class="flex flex-col items-center gap-1.5 w-16 transition">
+                <svg class="w-6 h-6 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
+                <span class="text-[10px] font-extrabold tracking-wider text-zinc-500">PAIRING</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Escape semua data dinamis sebelum dimasukkan ke innerHTML (anti HTML/JS injection).
+        function escapeHtml(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // =========================================================================
+        // 1. STATE MULTI-MOBIL & LOG RIWAYAT PERJALANAN PER JAM (TRIP SESSIONS)
+        // =========================================================================
+        let userGmail = localStorage.getItem('gc_hp_gmail') || '';
+        let vehiclesMap = JSON.parse(localStorage.getItem('gc_hp_vehicles_v4') || '{}');
+        let activeCarCode = localStorage.getItem('gc_hp_active_car') || '';
+        let activeEventSources = {};
+
+        let currentStatPeriod = 'WEEKLY'; // 'WEEKLY' | 'MONTHLY'
+        let currentCatFilter = 'ALL';     // 'ALL' | 'KERJA' | 'PRIBADI'
+
+        function createEmptyCarState(code, name) {
+            return {
+                pairingCode: code,
+                vehicleName: name || ('MOBIL (' + code + ')'),
+                totalMonthlyKm: 0.0,
+                tripsCount: 0,
+                totalDurationSec: 0,
+                activeDaysCount: 0,
+                longestTripKm: 0.0,
+                maxSpeedKmh: 0,
+                avgSpeedKmh: 0,
+                odometerKm: 0,
+                lastLat: null,
+                lastLng: null,
+                updatedAt: null,
+                tripHistory: [] // Daftar sesi perjalanan per jam { tripId, dateIso, startTime, endTime, distanceKm, durationMinutes, avgSpeedKmh, maxSpeedKmh, category, timestamp }
+            };
+        }
+
+        function ensureDefaultCarSlot() {
+            const codes = Object.keys(vehiclesMap);
+            if (codes.length === 0) {
+                vehiclesMap['MOBIL-A'] = createEmptyCarState('MOBIL-A', 'Mobil A');
+                activeCarCode = 'MOBIL-A';
+                saveVehiclesToStorage();
+            } else if (!activeCarCode || !vehiclesMap[activeCarCode]) {
+                activeCarCode = codes[0];
+                localStorage.setItem('gc_hp_active_car', activeCarCode);
+            }
+            // Pastikan array tripHistory selalu ada
+            for (const c of Object.keys(vehiclesMap)) {
+                if (!Array.isArray(vehiclesMap[c].tripHistory)) {
+                    vehiclesMap[c].tripHistory = [];
+                }
+            }
+        }
+
+        function saveVehiclesToStorage() {
+            localStorage.setItem('gc_hp_vehicles_v4', JSON.stringify(vehiclesMap));
+            localStorage.setItem('gc_hp_active_car', activeCarCode);
+        }
+
+        // =========================================================================
+        // 2. PETA INTERAKTIF LOKASI PARKIR TERAKHIR (LEAFLET GOOGLE MAPS TILES)
+        // =========================================================================
+        let parkingMap = null;
+        let parkingMarker = null;
+        let isParkingMapDark = true;
+        const DEFAULT_LAT = -6.22970;
+        const DEFAULT_LNG = 106.80960;
+
+        function initParkingMap() {
+            try {
+                if (typeof L === 'undefined' || parkingMap) return;
+                parkingMap = L.map('hp-parking-map', {
+                    zoomControl: false,
+                    attributionControl: false
+                }).setView([DEFAULT_LAT, DEFAULT_LNG], 16);
+
+                const gLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=m&hl=id&x={x}&y={y}&z={z}', {
+                    maxZoom: 20
+                });
+                gLayer.on('tileerror', function() {
+                    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(parkingMap);
+                });
+                gLayer.addTo(parkingMap);
+
+                const pinIcon = L.divIcon({
+                    className: 'parking-pin-icon',
+                    html: `<div style="display:flex;flex-direction:column;align-items:center;">
+                             <div style="background:#facc15;color:#000;font-weight:900;font-size:10px;padding:2px 6px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.6);white-space:nowrap;margin-bottom:3px;">🅿 PARKIR</div>
+                             <div style="width:22px;height:22px;border-radius:999px;background:#facc15;border:3px solid #fff;box-shadow:0 0 14px #facc15;"></div>
+                           </div>`,
+                    iconSize: [64, 44],
+                    iconAnchor: [32, 34]
+                });
+
+                parkingMarker = L.marker([DEFAULT_LAT, DEFAULT_LNG], { icon: pinIcon }).addTo(parkingMap);
+            } catch (e) {
+                console.warn('Parking map init error:', e);
+            }
+        }
+
+        function updateParkingMapMarker(lat, lng) {
+            if (!parkingMap || !parkingMarker) return;
+            const targetLat = lat || DEFAULT_LAT;
+            const targetLng = lng || DEFAULT_LNG;
+            parkingMarker.setLatLng([targetLat, targetLng]);
+            parkingMap.setView([targetLat, targetLng], 17, { animate: true });
+        }
+
+        function centerParkingMap() {
+            const car = vehiclesMap[activeCarCode];
+            const lat = (car && car.lastLat) ? Number(car.lastLat) : DEFAULT_LAT;
+            const lng = (car && car.lastLng) ? Number(car.lastLng) : DEFAULT_LNG;
+            updateParkingMapMarker(lat, lng);
+            showToast('🎯 Peta dipusatkan ke titik parkir mobil');
+        }
+
+        function toggleParkingMapTheme() {
+            isParkingMapDark = !isParkingMapDark;
+            const el = document.getElementById('hp-parking-map');
+            const btn = document.getElementById('btn-park-theme');
+            if (isParkingMapDark) {
+                el.classList.add('parking-map-dark');
+                btn.innerText = '🌙';
+            } else {
+                el.classList.remove('parking-map-dark');
+                btn.innerText = '☀️';
+            }
+        }
+
+        // =========================================================================
+        // 3. HELPER KALENDER REAL-TIME (UNTUK LABEL HARI INI, KEMARIN, & GRAFIK)
+        // =========================================================================
+        function toLocalIsoDate(d) {
+            const yr = d.getFullYear();
+            const mo = String(d.getMonth() + 1).padStart(2, '0');
+            const da = String(d.getDate()).padStart(2, '0');
+            return `${yr}-${mo}-${da}`;
+        }
+
+        function getTodayIso() {
+            return toLocalIsoDate(new Date());
+        }
+
+        function getYesterdayIso() {
+            const d = new Date();
+            d.setDate(d.getDate() - 1);
+            return toLocalIsoDate(d);
+        }
+
+        function formatDayLabelForTrip(dateIso) {
+            if (!dateIso) return 'HARI INI';
+            const today = getTodayIso();
+            const yesterday = getYesterdayIso();
+            if (dateIso === today) return 'HARI INI';
+            if (dateIso === yesterday) return 'KEMARIN';
+
+            const parts = dateIso.split('-');
+            if (parts.length === 3) {
+                const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                const days = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
+                const months = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGU', 'SEP', 'OKT', 'NOV', 'DES'];
+                return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]}`;
+            }
+            return dateIso;
+        }
+
+        function formatKmDisplay(km) {
+            const num = Number(km || 0);
+            if (num >= 10 && Math.abs(num - Math.round(num)) < 0.08) {
+                return String(Math.round(num));
+            }
+            return num.toFixed(1).replace('.', ',');
+        }
+
+        function formatDuration(totalSec) {
+            const sec = parseInt(totalSec || 0);
+            const hrs = Math.floor(sec / 3600);
+            const mins = Math.floor((sec % 3600) / 60);
+            return hrs + ' j ' + mins + ' mnt';
+        }
+
+        // Render Bulan Rekap Bulanan secara dinamis (4 bulan terakhir berurutan)
+        function renderRekapMonthPills() {
+            const container = document.getElementById('rekap-month-pills');
+            if (!container) return;
+            const monthsShort = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGU', 'SEP', 'OKT', 'NOV', 'DES'];
+            const now = new Date();
+            let html = '';
+            for (let i = 0; i < 4; i++) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const label = `${monthsShort[d.getMonth()]} ${d.getFullYear()}`;
+                const cls = i === 0
+                    ? 'px-4 py-2 bg-amber-400 text-black rounded-xl shadow-sm whitespace-nowrap'
+                    : 'px-4 py-2 bg-zinc-900 text-zinc-400 border border-zinc-800 rounded-xl whitespace-nowrap';
+                html += `<button class="${cls}">${label}</button>`;
+            }
+            container.innerHTML = html;
+        }
+
+        // =========================================================================
+        // 4. RENDER GRAFIK TANGGAL BERURUTAN & DAFTAR PERJALANAN TERBARU
+        // =========================================================================
+        function setStatPeriod(period) {
+            currentStatPeriod = period;
+            const btnW = document.getElementById('btn-period-weekly');
+            const btnM = document.getElementById('btn-period-monthly');
+            if (period === 'WEEKLY') {
+                btnW.className = 'px-4 py-2 bg-amber-400 text-black rounded-lg transition';
+                btnM.className = 'px-4 py-2 text-zinc-400 rounded-lg transition';
+            } else {
+                btnM.className = 'px-4 py-2 bg-amber-400 text-black rounded-lg transition';
+                btnW.className = 'px-4 py-2 text-zinc-400 rounded-lg transition';
+            }
+            renderActiveVehicleUI();
+        }
+
+        function setCategoryFilter(cat) {
+            currentCatFilter = cat;
+            ['ALL', 'KERJA', 'PRIBADI'].forEach(c => {
+                const btn = document.getElementById('cat-filter-' + c);
+                if (!btn) return;
+                btn.className = (c === cat)
+                    ? 'flex-1 py-2.5 bg-amber-400 text-black rounded-lg transition'
+                    : 'flex-1 py-2.5 text-zinc-400 rounded-lg transition';
+            });
+            renderActiveVehicleUI();
+        }
+
+        function getFilteredTrips(car) {
+            const list = Array.isArray(car.tripHistory) ? car.tripHistory : [];
+            if (currentCatFilter === 'ALL') return list;
+            return list.filter(t => (t.category || 'PRIBADI').toUpperCase() === currentCatFilter);
+        }
+
+        function renderSequentialChart(car, filteredTrips) {
+            const barsContainer = document.getElementById('stat-bars-container');
+            const labelsContainer = document.getElementById('stat-labels-container');
+            const subtitleEl = document.getElementById('stat-range-subtitle');
+            const datesEl = document.getElementById('stat-range-dates');
+            const monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+            const now = new Date();
+
+            if (currentStatPeriod === 'WEEKLY') {
+                // 7 Hari Terakhir Berurutan (H-6 s.d. Hari Ini) -> Tidak pernah acak!
+                const buckets = [];
+                for (let i = 6; i >= 0; i--) {
+                    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+                    const iso = toLocalIsoDate(d);
+                    const label = `${d.getDate()} ${monthsShort[d.getMonth()]}`;
+                    let dayKm = 0;
+                    for (const t of filteredTrips) {
+                        if (t.dateIso === iso) dayKm += Number(t.distanceKm || 0);
+                    }
+                    // Jika belum ada log terperinci di hari ini tapi ada totalMonthlyKm
+                    if (i === 0 && dayKm === 0 && filteredTrips.length === 0 && car.totalMonthlyKm > 0) {
+                        dayKm = Number(car.totalMonthlyKm);
+                    }
+                    buckets.push({ label, km: dayKm, isToday: i === 0 });
+                }
+
+                const maxKm = Math.max(20, ...buckets.map(b => b.km));
+                const axisTop = Math.ceil(maxKm / 10) * 10;
+                document.getElementById('chart-max-label').innerText = axisTop + ' km';
+                subtitleEl.innerText = '7 hari terakhir (Kalender Berurutan)';
+                datesEl.innerText = `${buckets[0].label} – ${buckets[6].label} ${now.getFullYear()}`;
+
+                barsContainer.innerHTML = buckets.map(b => {
+                    const hPx = b.km > 0 ? Math.max(8, Math.round((b.km / axisTop) * 104)) : 4;
+                    const barColor = b.isToday
+                        ? 'bg-amber-400 shadow-[0_0_12px_rgba(250,204,21,0.45)]'
+                        : (b.km > 0 ? 'bg-amber-500/75' : 'bg-zinc-800/60');
+                    return `<div class="flex-1 flex flex-col items-center justify-end h-full">
+                                <div class="text-[9px] font-mono-tech text-zinc-400 mb-1">${b.km > 0 ? formatKmDisplay(b.km) : ''}</div>
+                                <div class="w-full max-w-[28px] ${barColor} rounded-t transition-all duration-300" style="height:${hPx}px;"></div>
+                            </div>`;
+                }).join('');
+
+                labelsContainer.innerHTML = buckets.map(b =>
+                    `<span class="flex-1 text-center ${b.isToday ? 'text-amber-400 font-extrabold' : 'text-zinc-500'}">${b.label}</span>`
+                ).join('');
+
+            } else {
+                // 6 Bulan Terakhir Berurutan (Misal: Jun, Jul, Agu, Sep, Okt, Nov)
+                const buckets = [];
+                for (let i = 5; i >= 0; i--) {
+                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                    const ymPrefix = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                    const label = monthsShort[d.getMonth()];
+                    let moKm = 0;
+                    for (const t of filteredTrips) {
+                        if (t.dateIso && t.dateIso.startsWith(ymPrefix)) {
+                            moKm += Number(t.distanceKm || 0);
+                        }
+                    }
+                    if (i === 0 && moKm === 0 && filteredTrips.length === 0 && car.totalMonthlyKm > 0) {
+                        moKm = Number(car.totalMonthlyKm);
+                    }
+                    buckets.push({ label, km: moKm, isCurrent: i === 0 });
+                }
+
+                const maxKm = Math.max(50, ...buckets.map(b => b.km));
+                const axisTop = Math.ceil(maxKm / 25) * 25;
+                document.getElementById('chart-max-label').innerText = axisTop + ' km';
+                subtitleEl.innerText = '6 bulan terakhir (Kalender Berurutan)';
+                datesEl.innerText = `${buckets[0].label} – ${buckets[5].label} ${now.getFullYear()}`;
+
+                barsContainer.innerHTML = buckets.map(b => {
+                    const hPx = b.km > 0 ? Math.max(8, Math.round((b.km / axisTop) * 104)) : 4;
+                    const barColor = b.isCurrent
+                        ? 'bg-amber-400 shadow-[0_0_12px_rgba(250,204,21,0.45)]'
+                        : (b.km > 0 ? 'bg-amber-500/75' : 'bg-zinc-800/60');
+                    return `<div class="flex-1 flex flex-col items-center justify-end h-full">
+                                <div class="text-[9px] font-mono-tech text-zinc-400 mb-1">${b.km > 0 ? formatKmDisplay(b.km) : ''}</div>
+                                <div class="w-full max-w-[32px] ${barColor} rounded-t transition-all duration-300" style="height:${hPx}px;"></div>
+                            </div>`;
+                }).join('');
+
+                labelsContainer.innerHTML = buckets.map(b =>
+                    `<span class="flex-1 text-center ${b.isCurrent ? 'text-amber-400 font-extrabold' : 'text-zinc-500'}">${b.label}</span>`
+                ).join('');
+            }
+        }
+
+        function renderRecentTripsBox(car, filteredTrips) {
+            const boxBody = document.getElementById('recent-trips-box-body');
+            const todayIso = getTodayIso();
+            const todayTrips = filteredTrips.filter(t => t.dateIso === todayIso);
+            const todayKm = todayTrips.reduce((acc, t) => acc + Number(t.distanceKm || 0), 0);
+
+            document.getElementById('chart-today-summary').innerText = `Hari ini: ${todayTrips.length} perjalanan • ${formatKmDisplay(todayKm)} km`;
+            document.getElementById('recent-trips-today-badge').innerText = `Hari ini: ${todayTrips.length} perjalanan (${formatKmDisplay(todayKm)} km)`;
+            document.getElementById('total-logged-sessions-text').innerText = `${filteredTrips.length} riwayat tercatat`;
+
+            // Urutkan dari yang paling baru (timestamp tertinggi)
+            const sorted = [...filteredTrips].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            const top3 = sorted.slice(0, 3);
+
+            if (top3.length === 0) {
+                boxBody.innerHTML = `
+                    <div class="px-5 py-6 text-center">
+                        <div class="font-mono-tech text-sm font-bold text-zinc-300">BELUM ADA RIWAYAT PERJALANAN</div>
+                        <div class="font-mono-tech text-xs text-zinc-500 mt-1">Setiap kali mesin mobil dinyalakan & berjalan, jam mulai–berhenti otomatis tercatat di sini.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            boxBody.innerHTML = top3.map((t, idx) => {
+                const dayLbl = formatDayLabelForTrip(t.dateIso);
+                const startStr = (t.startTime || '00.00').replace(':', '.');
+                const endStr = (t.endTime || '00.00').replace(':', '.');
+                const distStr = formatKmDisplay(t.distanceKm);
+                const durMin = Math.max(1, parseInt(t.durationMinutes || 1));
+                const avgSpd = t.avgSpeedKmh ? ` • Rata ${t.avgSpeedKmh} km/j` : '';
+                const maxSpd = t.maxSpeedKmh ? ` • Maks ${t.maxSpeedKmh} km/j` : '';
+                const borderCls = idx > 0 ? 'border-t border-[#262626]' : '';
+
+                return `
+                    <div onclick="openAllTripsModal()" class="px-5 py-4 ${borderCls} hover:bg-zinc-900/40 transition cursor-pointer">
+                        <div class="font-mono-tech text-lg font-extrabold text-white tracking-wider">
+                            <span>${dayLbl}</span>
+                            <span class="ml-3">${startStr} - ${endStr}</span>
+                        </div>
+                        <div class="font-mono-tech text-sm text-zinc-400 mt-1">
+                            ${distStr} km &nbsp;&bull;&nbsp; ${durMin} mnt<span class="text-xs text-zinc-500">${avgSpd}${maxSpd}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // =========================================================================
+        // 5. HALAMAN PENUH "PERJALANAN" (LIHAT SEMUA + FILTER & SORTIR TANGGAL)
+        // =========================================================================
+        function openAllTripsModal() {
+            const car = vehiclesMap[activeCarCode];
+            document.getElementById('all-trips-car-subtitle').innerText = car ? `${car.vehicleName} (${car.pairingCode})` : 'GREYCOAT';
+            document.getElementById('all-trips-overlay').classList.remove('hidden-tab');
+            applyTripsFilter();
+        }
+
+        function closeAllTripsModal() {
+            document.getElementById('all-trips-overlay').classList.add('hidden-tab');
+        }
+
+        function toggleDateFilterPanel() {
+            const panel = document.getElementById('date-filter-panel');
+            panel.classList.toggle('hidden-tab');
+        }
+
+        function resetDateFilter() {
+            document.getElementById('filter-date-input').value = '';
+            document.getElementById('filter-sort-select').value = 'NEWEST';
+            applyTripsFilter();
+        }
+
+        function applyTripsFilter() {
+            const car = vehiclesMap[activeCarCode];
+            const container = document.getElementById('all-trips-list-container');
+            if (!car || !container) return;
+
+            const dateQuery = document.getElementById('filter-date-input').value; // YYYY-MM-DD
+            const sortBy = document.getElementById('filter-sort-select').value;
+
+            let list = [...(car.tripHistory || [])];
+            if (currentCatFilter !== 'ALL') {
+                list = list.filter(t => (t.category || 'PRIBADI').toUpperCase() === currentCatFilter);
+            }
+            if (dateQuery) {
+                list = list.filter(t => t.dateIso === dateQuery);
+            }
+
+            // Sortir
+            if (sortBy === 'NEWEST') {
+                list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            } else if (sortBy === 'OLDEST') {
+                list.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            } else if (sortBy === 'LONGEST_DIST') {
+                list.sort((a, b) => Number(b.distanceKm || 0) - Number(a.distanceKm || 0));
+            } else if (sortBy === 'LONGEST_DUR') {
+                list.sort((a, b) => Number(b.durationMinutes || 0) - Number(a.durationMinutes || 0));
+            }
+
+            if (list.length === 0) {
+                container.innerHTML = `
+                    <div class="trip-box rounded-lg p-8 text-center">
+                        <div class="font-mono-tech text-sm font-bold text-zinc-300">TIDAK ADA DATA PERJALANAN</div>
+                        <div class="font-mono-tech text-xs text-zinc-500 mt-1">
+                            ${dateQuery ? 'Tidak ada perjalanan pada tanggal ' + dateQuery : 'Belum ada riwayat perjalanan yang tercatat dari Headunit.'}
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Kelompokkan berdasarkan dateIso (HARI INI, KEMARIN, MIN 8 NOV, dst.)
+            const groupsOrder = [];
+            const groupsMap = {};
+            for (const trip of list) {
+                const key = trip.dateIso || getTodayIso();
+                if (!groupsMap[key]) {
+                    groupsMap[key] = [];
+                    groupsOrder.push(key);
+                }
+                groupsMap[key].push(trip);
+            }
+
+            container.innerHTML = groupsOrder.map(dateKey => {
+                const dayTrips = groupsMap[dateKey];
+                const dayTitle = formatDayLabelForTrip(dateKey);
+                const totalDayKm = dayTrips.reduce((sum, item) => sum + Number(item.distanceKm || 0), 0);
+
+                const rowsHtml = dayTrips.map((t, idx) => {
+                    const startStr = (t.startTime || '00.00').replace(':', '.');
+                    const endStr = (t.endTime || '00.00').replace(':', '.');
+                    const distStr = formatKmDisplay(t.distanceKm);
+                    const durMin = Math.max(1, parseInt(t.durationMinutes || 1));
+                    const avgSpd = t.avgSpeedKmh ? `Rata ${t.avgSpeedKmh} km/j` : '';
+                    const maxSpd = t.maxSpeedKmh ? `Maks ${t.maxSpeedKmh} km/j` : '';
+                    const catBadge = t.category ? `<span class="px-2 py-0.5 rounded bg-zinc-800 text-[10px] text-amber-400 font-mono-tech">${escapeHtml(t.category)}</span>` : '';
+                    const borderTop = idx > 0 ? 'border-t border-[#262626]' : '';
+
+                    return `
+                        <div class="px-4 py-3.5 ${borderTop}">
+                            <div class="flex justify-between items-center">
+                                <div class="font-mono-tech text-base font-extrabold text-white tracking-wider">
+                                    ${startStr} - ${endStr}
+                                </div>
+                                ${catBadge}
+                            </div>
+                            <div class="flex justify-between items-center mt-1">
+                                <div class="font-mono-tech text-xs text-zinc-400">
+                                    ${distStr} km &nbsp;&bull;&nbsp; ${durMin} mnt
+                                </div>
+                                <div class="font-mono-tech text-[10px] text-zinc-500">
+                                    ${[avgSpd, maxSpd].filter(Boolean).join(' • ')}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                return `
+                    <div>
+                        <div class="flex justify-between items-center mb-2 px-0.5">
+                            <span class="font-mono-tech text-xs font-bold tracking-widest text-zinc-400 uppercase">${dayTitle}</span>
+                            <span class="font-mono-tech text-xs text-zinc-500">${dayTrips.length} perjalanan &bull; ${formatKmDisplay(totalDayKm)} km</span>
+                        </div>
+                        <div class="trip-box rounded-md overflow-hidden">
+                            ${rowsHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // =========================================================================
+        // 6. RENDER UTAMA UI APLIKASI HP
+        // =========================================================================
+        function renderHeaderAndSelector() {
+            document.getElementById('header-gmail-text').innerText = userGmail ? ('📧 ' + userGmail) : 'Belum Login Gmail (Ketuk Akun)';
+            const bar = document.getElementById('vehicle-selector-bar');
+            const codes = Object.keys(vehiclesMap);
+            bar.innerHTML = codes.map(code => {
+                const car = vehiclesMap[code];
+                const isActive = (code === activeCarCode);
+                const cls = isActive
+                    ? 'px-3.5 py-1.5 bg-amber-400 text-black rounded-xl whitespace-nowrap shadow'
+                    : 'px-3.5 py-1.5 bg-zinc-900 text-zinc-400 border border-zinc-800 rounded-xl whitespace-nowrap';
+                return `<button onclick="selectVehicle('${code}')" class="${cls}">🚗 ${escapeHtml(car.vehicleName)} <span class="opacity-70 text-[10px]">(${escapeHtml(code)})</span></button>`;
+            }).join('') + `<button onclick="openAccountModal()" class="px-3 py-1.5 bg-zinc-900/60 text-amber-400 border border-amber-400/30 rounded-xl whitespace-nowrap">+ Mobil Baru</button>`;
+        }
+
+        function selectVehicle(code) {
+            if (!vehiclesMap[code]) return;
+            activeCarCode = code;
+            saveVehiclesToStorage();
+            renderHeaderAndSelector();
+            renderActiveVehicleUI();
+            pullCloudData(false);
+        }
+
+        function renderActiveVehicleUI() {
+            ensureDefaultCarSlot();
+            const car = vehiclesMap[activeCarCode];
+            if (!car) return;
+
+            const titleLabel = (car.vehicleName || 'GREYCOAT').toUpperCase() + ' • ' + car.pairingCode;
+            document.getElementById('active-car-label-1').innerText = titleLabel;
+            document.getElementById('active-car-label-2').innerText = titleLabel;
+            document.getElementById('active-car-label-3').innerText = titleLabel;
+            document.getElementById('servis-code-badge').innerText = 'ID: ' + car.pairingCode;
+
+            const filteredTrips = getFilteredTrips(car);
+
+            // Hitung metrik berdasarkan filter kategori atau total dari Headunit
+            let kmVal = parseFloat(car.totalMonthlyKm || 0);
+            let tripsCnt = parseInt(car.tripsCount || 0);
+            let durSec = parseInt(car.totalDurationSec || 0);
+            let maxDist = parseFloat(car.longestTripKm || 0);
+
+            if (filteredTrips.length > 0 && currentCatFilter !== 'ALL') {
+                kmVal = filteredTrips.reduce((s, t) => s + Number(t.distanceKm || 0), 0);
+                tripsCnt = filteredTrips.length;
+                durSec = filteredTrips.reduce((s, t) => s + (Number(t.durationMinutes || 0) * 60), 0);
+                maxDist = Math.max(0, ...filteredTrips.map(t => Number(t.distanceKm || 0)));
+            } else if (filteredTrips.length > tripsCnt) {
+                tripsCnt = filteredTrips.length;
+            }
+
+            // Tab Garasi (Rekap Bulanan)
+            document.getElementById('hp-rekap-dist').innerHTML = `${kmVal.toFixed(1).replace('.', ',')} <span class="text-3xl font-bold text-amber-400">KM</span>`;
+            document.getElementById('hp-rekap-trips').innerText = tripsCnt;
+            document.getElementById('hp-rekap-time').innerText = formatDuration(durSec);
+            document.getElementById('hp-rekap-days').innerText = car.activeDaysCount || (new Set(filteredTrips.map(t => t.dateIso)).size) || 0;
+            document.getElementById('hp-rekap-maxdist').innerText = formatKmDisplay(maxDist) + ' km';
+
+            // Peta Lokasi Parkir Terakhir
+            if (car.lastLat && car.lastLng) {
+                document.getElementById('hp-parking-loc').innerText = `${car.vehicleName} • GPS: ${Number(car.lastLat).toFixed(5)}, ${Number(car.lastLng).toFixed(5)}`;
+                const timeStr = car.updatedAt ? new Date(car.updatedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '';
+                document.getElementById('hp-parking-time').innerText = `Tersimpan otomatis pukul ${timeStr}`;
+                updateParkingMapMarker(Number(car.lastLat), Number(car.lastLng));
+            } else {
+                document.getElementById('hp-parking-loc').innerText = `Belum ada titik parkir (${car.vehicleName})`;
+                document.getElementById('hp-parking-time').innerText = 'Tersinkron otomatis saat mobil berhenti / parkir';
+            }
+
+            // Tab Statistik
+            document.getElementById('hp-stat-dist').innerText = formatKmDisplay(kmVal) + ' km';
+            document.getElementById('hp-stat-time').innerText = formatDuration(durSec);
+            document.getElementById('hp-stat-trips').innerText = tripsCnt;
+            document.getElementById('hp-stat-avg').innerText = (car.avgSpeedKmh || 0) + ' km/j';
+            document.getElementById('hp-stat-max').innerText = (car.maxSpeedKmh || 0) + ' km/j';
+
+            renderSequentialChart(car, filteredTrips);
+            renderRecentTripsBox(car, filteredTrips);
+
+            // Tab Servis & Odometer
+            const odo = parseInt(car.odometerKm || 0);
+            document.getElementById('hp-odo-val').innerHTML = `${odo.toLocaleString('id-ID')} <span class="text-lg text-zinc-500 font-bold">KM</span>`;
+            if (car.updatedAt) {
+                const tStr = new Date(car.updatedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                document.getElementById('hp-odo-time').innerText = `Tersinkronisasi dari Headunit ${car.vehicleName}: Hari ini, ${tStr}`;
+            } else {
+                document.getElementById('hp-odo-time').innerText = 'Belum ada data sinkronisasi dari Headunit';
+            }
+            if (typeof renderServiceDashboard === 'function') renderServiceDashboard();
+        }
+
+        // =========================================================================
+        // 7. SINKRONISASI CLOUD OTOMATIS (MENERIMA LIVE STATE & LOG SESI PER JAM)
+        // =========================================================================
+        function getGmailChannelTopic(email) {
+            if (!email || !email.includes('@')) return '';
+            const clean = email.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+            return 'greycoat_gmail_' + clean;
+        }
+
+        function getCarChannelTopic(code) {
+            const clean = (code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+            return 'greycoat_car_' + clean;
+        }
+
+        function mergeTripLogs(existingLogs, incomingLogs, singleCompletedTrip) {
+            const mapById = {};
+            for (const item of (existingLogs || [])) {
+                if (item && item.tripId) mapById[item.tripId] = item;
+            }
+            if (Array.isArray(incomingLogs)) {
+                for (const item of incomingLogs) {
+                    if (item && item.tripId) mapById[item.tripId] = item;
+                }
+            }
+            if (singleCompletedTrip && singleCompletedTrip.tripId) {
+                mapById[singleCompletedTrip.tripId] = singleCompletedTrip;
+            }
+            return Object.values(mapById).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        }
+
+        function applyIncomingPayload(data) {
+            if (!data || !data.pairingCode) return;
+            const code = String(data.pairingCode).toUpperCase();
+
+            if (vehiclesMap['MOBIL-A'] && vehiclesMap['MOBIL-A'].totalMonthlyKm === 0 && !vehiclesMap['MOBIL-A'].updatedAt && code !== 'MOBIL-A') {
+                delete vehiclesMap['MOBIL-A'];
+                if (activeCarCode === 'MOBIL-A') activeCarCode = code;
+            }
+
+            const existing = vehiclesMap[code] || createEmptyCarState(code, data.vehicleName);
+            const mergedHistory = mergeTripLogs(existing.tripHistory, data.tripHistory, data.latestCompletedTrip);
+
+            if (Array.isArray(data.serviceComponents) && data.serviceComponents.length > 0) {
+                serviceComponents = data.serviceComponents;
+                saveServiceComponentsToStorage();
+                if (typeof renderServiceDashboard === 'function') renderServiceDashboard();
+            }
+            if (!existing.updatedAt || (data.updatedAt && data.updatedAt >= existing.updatedAt)) {
+                vehiclesMap[code] = {
+                    pairingCode: code,
+                    vehicleName: data.vehicleName || existing.vehicleName || ('Mobil ' + code),
+                    totalMonthlyKm: Number(data.totalMonthlyKm ?? existing.totalMonthlyKm ?? 0),
+                    tripsCount: Math.max(Number(data.tripsCount ?? 0), mergedHistory.length),
+                    totalDurationSec: Number(data.totalDurationSec ?? existing.totalDurationSec ?? 0),
+                    activeDaysCount: Number(data.activeDaysCount ?? existing.activeDaysCount ?? 0),
+                    longestTripKm: Number(data.longestTripKm ?? existing.longestTripKm ?? 0),
+                    maxSpeedKmh: Number(data.maxSpeedKmh ?? existing.maxSpeedKmh ?? 0),
+                    avgSpeedKmh: Number(data.avgSpeedKmh ?? existing.avgSpeedKmh ?? 0),
+                    odometerKm: Number(data.odometerKm ?? existing.odometerKm ?? 0),
+                    lastLat: data.lastLat ?? existing.lastLat,
+                    lastLng: data.lastLng ?? existing.lastLng,
+                    updatedAt: data.updatedAt || Date.now(),
+                    tripHistory: mergedHistory
+                };
+            } else {
+                existing.tripHistory = mergedHistory;
+                vehiclesMap[code] = existing;
+            }
+
+            if (!activeCarCode || !vehiclesMap[activeCarCode]) {
+                activeCarCode = code;
+            }
+            saveVehiclesToStorage();
+            renderHeaderAndSelector();
+            renderActiveVehicleUI();
+            document.getElementById('net-text').innerText = 'Tersinkron: ' + vehiclesMap[code].vehicleName + ' (' + formatKmDisplay(vehiclesMap[code].totalMonthlyKm) + ' KM)';
+        }
+
+        async function fetchTopicHistory(topic) {
+            if (!topic || !navigator.onLine) return;
+            try {
+                const res = await fetch('https://ntfy.sh/' + topic + '/json?poll=1&since=all');
+                const text = await res.text();
+                const lines = text.split('\n').filter(Boolean);
+                for (const line of lines) {
+                    try {
+                        const evt = JSON.parse(line);
+                        if (evt.event === 'message' && evt.message) {
+                            const payload = JSON.parse(evt.message);
+                            applyIncomingPayload(payload);
+                        }
+                    } catch (_inner) {}
+                }
+            } catch (_e) {}
+        }
+
+        function subscribeLiveTopic(topic) {
+            if (!topic || activeEventSources[topic] || typeof EventSource === 'undefined') return;
+            try {
+                const es = new EventSource('https://ntfy.sh/' + topic + '/sse');
+                es.onmessage = function(e) {
+                    try {
+                        const evt = JSON.parse(e.data);
+                        if (evt.message) {
+                            const payload = JSON.parse(evt.message);
+                            applyIncomingPayload(payload);
+                        }
+                    } catch (_err) {}
+                };
+                activeEventSources[topic] = es;
+            } catch (_e) {}
+        }
+
+        async function pullCloudData(showNotification) {
+            if (!navigator.onLine) {
+                showToast('HP sedang offline, periksa koneksi internet');
+                return;
+            }
+            document.getElementById('net-text').innerText = 'Menarik data terbaru dari Cloud...';
+            const gTopic = getGmailChannelTopic(userGmail);
+            if (gTopic) {
+                await fetchTopicHistory(gTopic);
+                subscribeLiveTopic(gTopic);
+            }
+            for (const code of Object.keys(vehiclesMap)) {
+                if (code !== 'MOBIL-A') {
+                    const cTopic = getCarChannelTopic(code);
+                    await fetchTopicHistory(cTopic);
+                    subscribeLiveTopic(cTopic);
+                }
+            }
+            const car = vehiclesMap[activeCarCode];
+            document.getElementById('net-text').innerText = car && car.updatedAt
+                ? ('Tersinkron: ' + car.vehicleName + ' (' + formatKmDisplay(car.totalMonthlyKm) + ' KM)')
+                : 'Siap Menerima Data (' + (car ? car.pairingCode : '0,0 KM') + ')';
+            if (showNotification) {
+                showToast('Sinkronisasi Cloud selesai');
+            }
+        }
+
+        // =========================================================================
+        // 8. MODAL AKUN & NAVIGASI TAB
+        // =========================================================================
+        function openAccountModal() {
+            document.getElementById('modal-gmail-input').value = userGmail;
+            document.getElementById('account-modal').classList.remove('hidden-tab');
+        }
+        function closeAccountModal() {
+            document.getElementById('account-modal').classList.add('hidden-tab');
+        }
+        function saveGmailAndSync() {
+            const val = document.getElementById('modal-gmail-input').value.trim().toLowerCase();
+            if (!val || !val.includes('@')) {
+                showToast('Masukkan alamat email Gmail yang valid');
+                return;
+            }
+            userGmail = val;
+            localStorage.setItem('gc_hp_gmail', userGmail);
+            renderHeaderAndSelector();
+            closeAccountModal();
+            pullCloudData(true);
+            showToast('Akun Gmail disimpan & terhubung!');
+        }
+        function addVehicleByCode() {
+            const nameVal = document.getElementById('modal-car-name').value.trim() || 'GREYCOAT';
+            let codeVal = document.getElementById('modal-car-code').value.trim().toUpperCase();
+            if (!codeVal) {
+                showToast('Masukkan Kode Pairing dari Setelan Launcher (contoh: GC-4829)');
+                return;
+            }
+            if (!codeVal.startsWith('GC-') && /^\d{4}$/.test(codeVal)) {
+                codeVal = 'GC-' + codeVal;
+            }
+            if (vehiclesMap['MOBIL-A'] && !vehiclesMap['MOBIL-A'].updatedAt) {
+                delete vehiclesMap['MOBIL-A'];
+            }
+            if (!vehiclesMap[codeVal]) {
+                vehiclesMap[codeVal] = createEmptyCarState(codeVal, nameVal);
+            } else {
+                vehiclesMap[codeVal].vehicleName = nameVal;
+            }
+            activeCarCode = codeVal;
+            saveVehiclesToStorage();
+            renderHeaderAndSelector();
+            renderActiveVehicleUI();
+            closeAccountModal();
+            pullCloudData(true);
+            showToast('Kendaraan ' + nameVal + ' (' + codeVal + ') ditambahkan!');
+        }
+
+        function openLastParkingInMaps() {
+            const car = vehiclesMap[activeCarCode];
+            if (!car || !car.lastLat || !car.lastLng) {
+                showToast('Belum ada titik koordinat parkir dari Headunit');
+                return;
+            }
+            if (window.AndroidBridge && window.AndroidBridge.openParkingMap) {
+                window.AndroidBridge.openParkingMap(Number(car.lastLat), Number(car.lastLng), car.vehicleName);
+            } else {
+                window.open(`https://www.google.com/maps/search/?api=1&query=${car.lastLat},${car.lastLng}`, '_blank');
+            }
+        }
+
+        function switchTab(tabName) {
+            const tabs = ['garasi', 'statistik', 'servis'];
+            tabs.forEach(t => {
+                const view = document.getElementById('view-' + t);
+                const icon = document.getElementById('icon-' + t);
+                const text = document.getElementById('text-' + t);
+                if (t === tabName) {
+                    view.classList.remove('hidden-tab');
+                    icon.classList.remove('text-zinc-500');
+                    icon.classList.add('text-amber-400');
+                    text.classList.remove('text-zinc-500');
+                    text.classList.add('text-amber-400');
+                } else {
+                    view.classList.add('hidden-tab');
+                    icon.classList.remove('text-amber-400');
+                    icon.classList.add('text-zinc-500');
+                    text.classList.remove('text-amber-400');
+                    text.classList.add('text-zinc-500');
+                }
+            });
+            if (tabName === 'garasi' && parkingMap) {
+                setTimeout(() => parkingMap.invalidateSize(), 120);
+            }
+        }
+
+        function shareRekap() {
+            const car = vehiclesMap[activeCarCode];
+            showToast('Menyiapkan kartu rekap ' + (car ? car.vehicleName : 'GREYCOAT') + '...');
+        }
+
+        function exportData(format) {
+            const car = vehiclesMap[activeCarCode];
+            showToast('Mengekspor laporan ' + (car ? car.vehicleName : '') + ' ke ' + format);
+        }
+
+        function showToast(msg) {
+            if (window.AndroidBridge && window.AndroidBridge.showToast) {
+                window.AndroidBridge.showToast(msg);
+            } else {
+                alert(msg);
+            }
+        }
+
+        window.onNativeNetworkChange = function(isOnline) {
+            const netDot = document.getElementById('net-dot');
+            if (isOnline) {
+                netDot.style.background = '#10b981';
+                pullCloudData(false);
+            } else {
+                netDot.style.background = '#ef4444';
+                document.getElementById('net-text').innerText = 'HP Offline: Menunggu Jaringan';
+            }
+        };
+
+        
+    // =========================================================================
+    // 10. SISTEM PENGINGAT SERVIS 17 KOMPONEN + SESUAIKAN UMUR & EDIT INTERVAL
+    // =========================================================================
+    const DEFAULT_SERVICE_COMPONENTS = [
+        // Perlu Perhatian (2)
+        {
+            id: 'filter_oli', name: 'Filter Oli Mesin', iconKey: 'filter_oli',
+            hasKm: true, recKm: 20000, intervalKm: 20000, remKm: 15635,
+            recMonths: 6, intervalMonths: 6, remDays: 34,
+            advice: 'Ganti filter oli bersamaan dengan penggantian oli mesin agar sirkulasi pelumasan tetap bersih dari endapan logam.',
+            lastService: 'Tidak tersedia', note: '', history: []
+        },
+        {
+            id: 'wiper', name: 'Wiper', iconKey: 'wiper',
+            hasKm: false, recKm: 0, intervalKm: 0, remKm: 0,
+            recMonths: 12, intervalMonths: 12, remDays: 42,
+            advice: 'Periksa karet bilah wiper secara berkala. Ganti jika sapuan air mulai meninggalkan garis atau berdecit di kaca.',
+            lastService: 'Tidak tersedia', note: '', history: []
+        },
+        // Periksa Segera (10)
+        {
+            id: 'aki_12v', name: 'Aki 12V', iconKey: 'aki',
+            hasKm: false, recKm: 0, intervalKm: 0, remKm: 0,
+            recMonths: 24, intervalMonths: 24, remDays: 224,
+            advice: 'Periksa tegangan aki dan kebersihan terminal kutub positif/negatif di setiap servis berkala.',
+            lastService: 'Tidak tersedia', note: '', history: []
+        },
+        {
+            id: 'filter_udara', name: 'Filter Udara', iconKey: 'filter_udara',
+            hasKm: true, recKm: 50000, intervalKm: 50000, remKm: 45635,
+            recMonths: 24, intervalMonths: 24, remDays: 224,
+            advice: 'Periksa filter di setiap servis dan ganti jika kotor. Filter udara yang bersih menjaga efisiensi pembakaran mesin.',
+            lastService: 'Tidak tersedia', note: '', history: []
+        },
+        {
+            id: 'filter_kabin', name: 'Filter Udara Kabin', iconKey: 'filter_kabin',
+            hasKm: false, recKm: 0, intervalKm: 0, remKm: 0,
+            recMonths: 24, intervalMonths: 24, remDays: 224,
+            advice: 'Ganti filter AC kabin secara berkala agar hembusan udara AC tetap segar, dingin, dan bebas debu/bakteri.',
+            lastService: 'Tidak tersedia', note: '', history: []
+        },
+        {
+            id: 'air_radiator', name: 'Air Radiator', iconKey: 'radiator',
+            hasKm: true, recKm: 50000, intervalKm: 50000, remKm: 45635,
+            recMonths: 24, intervalMonths: 24, remDays: 224,
+            advice: 'Pastikan level cairan pendingin (coolant) berada di batas aman dan kuras sesuai interval agar mesin bebas overheat.',
+            lastService: 'Tidak tersedia', note: '', history: []
+        },
+        {
+            id: 'filter_bbm', name: 'Filter Bahan Bakar', iconKey: 'filter_bbm',
+            hasKm: true, recKm: 50000, intervalKm: 50000, remKm: 45635,
+            recMonths: 24, intervalMonths: 24, remDays: 224,
+            advice: 'Filter bahan bakar menyaring kotoran & karat dari tangki sebelum masuk ke injektor. Ganti sesuai jadwal.',
+            lastService: 'Tidak tersedia', note: '', history: []
+        },
+        {
+            id: 'power_steering', name: 'Cairan Power Steering', iconKey: 'power_steering',
+            hasKm: true, recKm: 80000, intervalKm: 80000, remKm: 75635,
+            recMonths: 36, intervalMonths: 36, remDays: 405,
+            advice: 'Periksa level minyak power steering dan pastikan tidak ada kebocoran pada selang maupun rack steer.',
+            lastService: 'Tidak tersedia', note: '', history: []
+        },
+        {
+            id: 'busi', name: 'Busi', iconKey: 'busi',
+            hasKm: true, recKm: 80000, intervalKm: 80000, remKm: 75635,
+            recMonths: 36, intervalMonths: 36, remDays: 405,
+            advice: 'Periksa celah elektroda busi. Busi yang aus membuat tarikan mesin berat dan konsumsi BBM lebih boros.',
+            lastService: 'Tidak tersedia', note: '', history: []
+        },
+        {
+            id: 'ban', name: 'Ban', iconKey: 'ban',
+            hasKm: true, recKm: 55000, intervalKm: 55000, remKm: 50635,
+            recMonths: 36, intervalMonths: 36, remDays: 405,
+            advice: 'Lakukan rotasi ban, spooring, dan balancing secara berkala serta periksa batas keausan alur ban (TWI).',
+            lastService: 'Tidak tersedia', note: '', history: []
+        },
+        {
+            id: 'oli_sokbreaker', name: 'Oli Sokbreaker', iconKey: 'sokbreaker',
+            hasKm: true, recKm: 120000, intervalKm: 120000, remKm: 115635,
+            recMonths: 48, intervalMonths: 48, remDays: 588,
+            advice: 'Periksa kebocoran oli pada tabung sokbreaker dan kondisi karet support agar bantingan suspensi tetap stabil.',
+            lastService: 'Tidak tersedia', note: '', history: []
+        },
+        {
+            id: 'oli_mesin', name: 'Oli Mesin', iconKey: 'oli_mesin',
+            hasKm: true, recKm: 10000, intervalKm: 10000, remKm: 5630,
+            recMonths: 6, intervalMonths: 6, remDays: 92,
+            advice: 'Ganti oli mesin tepat waktu sesuai spesifikasi viskositas pabrikan untuk menjaga keawetan komponen internal mesin.',
+            lastService: 'Tidak tersedia', note: '', history: []
+        },
+        // Sehat (5)
+        {
+            id: 'minyak_rem', name: 'Minyak Rem', iconKey: 'minyak_rem',
+            hasKm: true, recKm: 20000, intervalKm: 20000, remKm: 15635,
+            recMonths: 24, intervalMonths: 24, remDays: 615,
+            advice: 'Kuras minyak rem setiap 2 tahun karena sifatnya menyerap uap air yang dapat menurunkan titik didih pengereman.',
+            lastService: 'Tidak tersedia', note: '', history: []
+        },
+        {
+            id: 'kampas_rem', name: 'Kampas Rem', iconKey: 'kampas_rem',
+            hasKm: true, recKm: 50000, intervalKm: 50000, remKm: 45635,
+            recMonths: 60, intervalMonths: 60, remDays: 1825,
+            advice: 'Periksa ketebalan kampas rem depan dan belakang di setiap servis berkala dan bersihkan dari debu residu.',
+            lastService: 'Tidak tersedia', note: '', history: []
+        },
+        {
+            id: 'cakram_rem', name: 'Cakram Rem', iconKey: 'cakram_rem',
+            hasKm: true, recKm: 60000, intervalKm: 60000, remKm: 55635,
+            recMonths: 72, intervalMonths: 72, remDays: 2220,
+            advice: 'Pastikan permukaan piringan cakram rem rata, tidak bergelombang, dan masih di atas batas ketebalan minimum.',
+            lastService: 'Tidak tersedia', note: '', history: []
+        },
+        {
+            id: 'oli_transmisi', name: 'Oli Transmisi', iconKey: 'oli_transmisi',
+            hasKm: true, recKm: 75000, intervalKm: 75000, remKm: 67635,
+            recMonths: 90, intervalMonths: 90, remDays: 2710,
+            advice: 'Ganti fluida transmisi (ATF/CVTF/MTF) secara berkala agar perpindahan gigi tetap halus dan responsif.',
+            lastService: 'Tidak tersedia', note: '', history: []
+        },
+        {
+            id: 'timing_belt', name: 'Timing Belt', iconKey: 'timing_belt',
+            hasKm: true, recKm: 100000, intervalKm: 100000, remKm: 95635,
+            recMonths: 120, intervalMonths: 120, remDays: 3830,
+            advice: 'Periksa kondisi ketegangan dan retakan pada sabuk penggerak (Timing Belt / Fan Belt) beserta tensionernya.',
+            lastService: 'Tidak tersedia', note: '', history: []
+        }
+    ];
+
+    let serviceComponents = JSON.parse(localStorage.getItem('gc_service_components_v11') || 'null');
+    if (!Array.isArray(serviceComponents) || serviceComponents.length === 0) {
+        serviceComponents = JSON.parse(JSON.stringify(DEFAULT_SERVICE_COMPONENTS));
+        localStorage.setItem('gc_service_components_v11', JSON.stringify(serviceComponents));
+    }
+
+    let selectedServiceCompId = null;
+    let editTempIntervalKm = 50000;
+    let editTempRemKm = 45600;
+    let editTempIntervalMonths = 24;
+    let editTempRemDays = 224;
+
+    function saveServiceComponentsToStorage() {
+        localStorage.setItem('gc_service_components_v11', JSON.stringify(serviceComponents));
+    }
+
+    function getCompMetrics(comp) {
+        const totalDays = Math.max(1, Math.round((comp.intervalMonths || 12) * 30.4375));
+        const rDays = Math.max(0, Math.round(comp.remDays ?? totalDays));
+        const timePct = Math.min(100, Math.max(0, Math.round((rDays / totalDays) * 100)));
+
+        let kmPct = 100;
+        let rKm = 0;
+        if (comp.hasKm && comp.intervalKm > 0) {
+            rKm = Math.max(0, Math.round(comp.remKm ?? comp.intervalKm));
+            kmPct = Math.min(100, Math.max(0, Math.round((rKm / comp.intervalKm) * 100)));
+        }
+
+        const lowestPct = comp.hasKm ? Math.min(kmPct, timePct) : timePct;
+        let status = 'GOOD'; // 'URGENT' | 'SOON' | 'GOOD'
+        let color = '#22c55e';
+        if (lowestPct <= 20) {
+            status = 'URGENT';
+            color = '#ef4444';
+        } else if (lowestPct <= 55) {
+            status = 'SOON';
+            color = '#eab308';
+        }
+
+        // Hitung tanggal estimasi dari rDays
+        const targetDate = new Date();
+        targetDate.setDate(targetDate.getDate() + rDays);
+        const monthsId = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        const estMonthYear = `est. ${monthsId[targetDate.getMonth()]} ${targetDate.getFullYear()}`;
+        const fullBestDate = `${targetDate.getDate()} ${monthsId[targetDate.getMonth()]} ${targetDate.getFullYear()}`;
+        const isoDate = targetDate.getFullYear() + '-' + String(targetDate.getMonth() + 1).padStart(2, '0') + '-' + String(targetDate.getDate()).padStart(2, '0');
+
+        return {
+            rKm, kmPct,
+            rDays, totalDays, timePct,
+            lowestPct, status, color,
+            estMonthYear, fullBestDate, isoDate
+        };
+    }
+
+    function getBarColorByPct(pct) {
+        if (pct <= 20) return '#ef4444';
+        if (pct <= 55) return '#eab308';
+        return '#22c55e';
+    }
+
+    function getServiceComponentSvg(iconKey, fillHex) {
+        const baseGray = '#3f3f46';
+        switch (iconKey) {
+            case 'filter_oli':
+                return `<svg width="46" height="46" viewBox="0 0 48 48" fill="none">
+                    <rect x="13" y="8" width="22" height="24" rx="3" fill="${baseGray}"/>
+                    <path d="M13 30 H35 V35 C35 38.3 32.3 41 29 41 H19 C15.7 41 13 38.3 13 35 V30 Z" fill="${fillHex}"/>
+                    <line x1="17" y1="33" x2="17" y2="38" stroke="#18181b" stroke-width="2" stroke-linecap="round"/>
+                    <line x1="24" y1="33" x2="24" y2="39" stroke="#18181b" stroke-width="2" stroke-linecap="round"/>
+                    <line x1="31" y1="33" x2="31" y2="38" stroke="#18181b" stroke-width="2" stroke-linecap="round"/>
+                </svg>`;
+            case 'wiper':
+                return `<svg width="46" height="46" viewBox="0 0 48 48" fill="none">
+                    <path d="M8 18 Q24 6 40 18 L34 36 Q24 29 14 36 Z" stroke="${baseGray}" stroke-width="3.5" fill="none"/>
+                    <line x1="24" y1="37" x2="33" y2="14" stroke="${fillHex}" stroke-width="3.5" stroke-linecap="round"/>
+                    <circle cx="24" cy="37" r="4" fill="${fillHex}"/>
+                </svg>`;
+            case 'aki':
+                return `<svg width="46" height="46" viewBox="0 0 48 48" fill="none">
+                    <rect x="14" y="10" width="5" height="4" rx="1" fill="${baseGray}"/>
+                    <rect x="29" y="10" width="5" height="4" rx="1" fill="${baseGray}"/>
+                    <rect x="8" y="14" width="32" height="24" rx="3" fill="${baseGray}"/>
+                    <rect x="8" y="29" width="32" height="9" rx="2" fill="${fillHex}"/>
+                </svg>`;
+            case 'filter_udara':
+                return `<svg width="46" height="46" viewBox="0 0 48 48" fill="none">
+                    <path d="M12 14 C18 10, 26 18, 36 14" stroke="${baseGray}" stroke-width="3.2" stroke-linecap="round"/>
+                    <path d="M12 22 C18 18, 26 26, 36 22" stroke="${baseGray}" stroke-width="3.2" stroke-linecap="round"/>
+                    <rect x="13" y="28" width="22" height="10" rx="3" stroke="${fillHex}" stroke-width="3" fill="none"/>
+                    <path d="M17 33 H31" stroke="${fillHex}" stroke-width="3" stroke-linecap="round"/>
+                </svg>`;
+            case 'filter_kabin':
+                return `<svg width="46" height="46" viewBox="0 0 48 48" fill="none">
+                    <circle cx="24" cy="17" r="7" fill="${baseGray}"/>
+                    <text x="24" y="39" text-anchor="middle" fill="${fillHex}" font-size="14" font-weight="900" font-family="sans-serif">A/C</text>
+                </svg>`;
+            case 'radiator':
+                return `<svg width="46" height="46" viewBox="0 0 48 48" fill="none">
+                    <rect x="19" y="9" width="10" height="4" rx="1" fill="${baseGray}"/>
+                    <rect x="9" y="14" width="30" height="24" rx="3" fill="${baseGray}"/>
+                    <rect x="9" y="29" width="30" height="9" rx="2" fill="${fillHex}"/>
+                </svg>`;
+            case 'filter_bbm':
+                return `<svg width="46" height="46" viewBox="0 0 48 48" fill="none">
+                    <path d="M12 12 H36 L27 25 V35 H21 V25 L12 12 Z" fill="${baseGray}"/>
+                    <circle cx="24" cy="36" r="4.5" stroke="${fillHex}" stroke-width="3" fill="none"/>
+                </svg>`;
+            case 'power_steering':
+                return `<svg width="46" height="46" viewBox="0 0 48 48" fill="none">
+                    <rect x="12" y="10" width="24" height="28" rx="4" fill="${baseGray}"/>
+                    <path d="M12 29 H36 V34 C36 36.2 34.2 38 32 38 H16 C13.8 38 12 36.2 12 34 V29 Z" fill="${fillHex}"/>
+                    <circle cx="24" cy="24" r="6" stroke="#18181b" stroke-width="2.5" fill="none"/>
+                </svg>`;
+            case 'busi':
+                return `<svg width="46" height="46" viewBox="0 0 48 48" fill="none">
+                    <rect x="20" y="8" width="8" height="16" rx="2" fill="${baseGray}"/>
+                    <rect x="18" y="24" width="12" height="7" rx="1" fill="${baseGray}"/>
+                    <path d="M21 31 H27 L25 39 H23 Z" fill="${fillHex}"/>
+                </svg>`;
+            case 'ban':
+                return `<svg width="46" height="46" viewBox="0 0 48 48" fill="none">
+                    <circle cx="24" cy="24" r="14" stroke="${baseGray}" stroke-width="6" fill="none"/>
+                    <path d="M12 31 A14 14 0 0 0 36 31" stroke="${fillHex}" stroke-width="6" stroke-linecap="round" fill="none"/>
+                </svg>`;
+            case 'sokbreaker':
+                return `<svg width="46" height="46" viewBox="0 0 48 48" fill="none">
+                    <rect x="18" y="9" width="12" height="18" rx="3" fill="${baseGray}"/>
+                    <path d="M16 28 H32 L29 38 H19 Z" fill="${fillHex}"/>
+                    <circle cx="24" cy="39" r="3" fill="${fillHex}"/>
+                </svg>`;
+            case 'oli_mesin':
+                return `<svg width="46" height="46" viewBox="0 0 48 48" fill="none">
+                    <path d="M10 22 H30 L38 18 L40 21 L32 32 H12 Z" fill="${fillHex}"/>
+                    <rect x="17" y="16" width="8" height="4" rx="1" fill="${baseGray}"/>
+                    <circle cx="41" cy="28" r="2.5" fill="${fillHex}"/>
+                </svg>`;
+            case 'minyak_rem':
+                return `<svg width="46" height="46" viewBox="0 0 48 48" fill="none">
+                    <circle cx="24" cy="24" r="10" stroke="${fillHex}" stroke-width="3" fill="none"/>
+                    <path d="M16 24 A8 8 0 0 0 32 24 Z" fill="${fillHex}"/>
+                    <path d="M10 15 A16 16 0 0 0 10 33" stroke="${fillHex}" stroke-width="3" stroke-linecap="round" fill="none"/>
+                    <path d="M38 15 A16 16 0 0 1 38 33" stroke="${fillHex}" stroke-width="3" stroke-linecap="round" fill="none"/>
+                </svg>`;
+            case 'kampas_rem':
+                return `<svg width="46" height="46" viewBox="0 0 48 48" fill="none">
+                    <path d="M21 10 C28 14, 28 34, 21 38 L17 34 C22 30, 22 18, 17 14 Z" fill="${fillHex}"/>
+                    <path d="M26 12 C32 17, 32 31, 26 36" stroke="${fillHex}" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+                </svg>`;
+            case 'cakram_rem':
+                return `<svg width="46" height="46" viewBox="0 0 48 48" fill="none">
+                    <circle cx="24" cy="24" r="14" fill="${fillHex}"/>
+                    <circle cx="24" cy="24" r="5" fill="#18181b"/>
+                    <circle cx="24" cy="24" r="2" fill="${fillHex}"/>
+                </svg>`;
+            case 'oli_transmisi':
+                return `<svg width="46" height="46" viewBox="0 0 48 48" fill="none">
+                    <circle cx="22" cy="22" r="10" fill="${fillHex}"/>
+                    <path d="M34 26 C34 26, 39 32, 39 35 A5 5 0 0 1 29 35 C29 32, 34 26, 34 26 Z" fill="${fillHex}"/>
+                </svg>`;
+            case 'timing_belt':
+            default:
+                return `<svg width="46" height="46" viewBox="0 0 48 48" fill="none">
+                    <rect x="9" y="15" width="30" height="18" rx="9" stroke="${fillHex}" stroke-width="4" stroke-dasharray="5 2" fill="none"/>
+                </svg>`;
+        }
+    }
+
+    function formatDotNumber(num) {
+        return Math.round(Number(num || 0)).toLocaleString('id-ID');
+    }
+
+    // Kurangi sisa KM pada seluruh komponen saat mobil berjalan
+    function deductServiceComponentsKm(deltaKm) {
+        if (!deltaKm || deltaKm <= 0) return;
+        for (const comp of serviceComponents) {
+            if (comp.hasKm && comp.remKm > 0) {
+                comp.remKm = Math.max(0, Number((comp.remKm - deltaKm).toFixed(2)));
+            }
+        }
+        saveServiceComponentsToStorage();
+    }
+
+    function renderServiceDashboard() {
+        const container = document.getElementById('srv-categories-scroll');
+        if (!container) return;
+
+        const urgentList = [];
+        const soonList = [];
+        const goodList = [];
+
+        for (const comp of serviceComponents) {
+            const m = getCompMetrics(comp);
+            const itemWithMeta = { comp, m };
+            if (m.status === 'URGENT') urgentList.push(itemWithMeta);
+            else if (m.status === 'SOON') soonList.push(itemWithMeta);
+            else goodList.push(itemWithMeta);
+        }
+
+        const groups = [
+            {
+                title: 'Perlu perhatian',
+                badgeBg: 'rgba(239,68,68,0.22)',
+                badgeColor: '#f87171',
+                iconHtml: `<span style="width:22px;height:22px;border-radius:999px;background:#ef4444;color:#000;font-weight:900;font-size:13px;display:inline-flex;align-items:center;justify-content:center;">!</span>`,
+                items: urgentList
+            },
+            {
+                title: 'Periksa Segera',
+                badgeBg: 'rgba(234,179,8,0.22)',
+                badgeColor: '#facc15',
+                iconHtml: `<span style="width:22px;height:22px;border-radius:6px;background:#eab308;color:#000;font-weight:900;font-size:13px;display:inline-flex;align-items:center;justify-content:center;">&#9888;</span>`,
+                items: soonList
+            },
+            {
+                title: 'Sehat',
+                badgeBg: 'rgba(34,197,94,0.22)',
+                badgeColor: '#4ade80',
+                iconHtml: `<span style="width:22px;height:22px;border-radius:999px;background:#22c55e;color:#000;font-weight:900;font-size:13px;display:inline-flex;align-items:center;justify-content:center;">&#10003;</span>`,
+                items: goodList
+            }
+        ];
+
+        const gridCols = window.innerWidth >= 900 ? 'repeat(6, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))';
+
+        container.innerHTML = groups.filter(g => g.items.length > 0).map(g => {
+            const cardsHtml = g.items.map(({ comp, m }) => {
+                const mainRemainingText = comp.hasKm
+                    ? `Sisa ${formatDotNumber(m.rKm)} km`
+                    : `Sisa ${formatDotNumber(m.rDays)} hari`;
+                return `
+                    <div onclick="openServiceCompDetail('${comp.id}')" style="background:#1c1c1e; border:1px solid rgba(255,255,255,0.08); border-radius:20px; padding:14px 10px; display:flex; flex-direction:column; align-items:center; justify-content:space-between; min-height:148px; cursor:pointer; transition:transform 0.15s;" onmouseover="this.style.borderColor='rgba(168,85,247,0.5)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.08)'">
+                        <div style="font-size:13px; font-weight:800; color:#fff; text-align:center; line-height:1.25; height:32px; display:flex; align-items:center; justify-content:center;">${escapeHtml(comp.name)}</div>
+                        <div style="margin:6px 0;">
+                            ${getServiceComponentSvg(comp.iconKey, m.color)}
+                        </div>
+                        <div style="text-align:center;">
+                            <div style="font-size:12px; font-weight:800; color:#e4e4e7;">${mainRemainingText}</div>
+                            <div style="font-size:10px; font-weight:600; color:#71717a; margin-top:2px;">${m.estMonthYear}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding:0 4px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            ${g.iconHtml}
+                            <span style="font-size:14px; font-weight:800; color:#fff;">${g.title}</span>
+                        </div>
+                        <span style="padding:2px 10px; border-radius:999px; background:${g.badgeBg}; color:${g.badgeColor}; font-size:12px; font-weight:800;">${g.items.length}</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns:${gridCols}; gap:10px;">
+                        ${cardsHtml}
+                    </div>
+                </div>
+            `;
+        }).join('') + `
+            <div style="padding-top:6px;">
+                <button onclick="openAddServiceCompModal()" style="width:100%; padding:12px; border-radius:999px; background:#1c1c1e; border:1px solid rgba(255,255,255,0.1); color:#fff; font-size:13px; font-weight:800; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;">
+                    <span>Tambah Komponen</span>
+                    <span style="color:#38bdf8;">&#9662;</span>
+                </button>
+            </div>
+        `;
+    }
+
+    function openServiceCompDetail(compId) {
+        const comp = serviceComponents.find(c => c.id === compId);
+        if (!comp) return;
+        selectedServiceCompId = compId;
+
+        document.getElementById('srv-dashboard-view').classList.add('hidden');
+        document.getElementById('srv-detail-view').classList.remove('hidden');
+
+        // Pastikan masuk ke mode Lihat & tab Saat Ini terlebih dahulu
+        document.getElementById('srv-card-view-mode').classList.remove('hidden');
+        document.getElementById('srv-card-edit-mode').classList.add('hidden');
+        switchServiceDetailTab('CURRENT');
+        refreshServiceDetailUI();
+    }
+
+    function closeServiceCompDetail() {
+        selectedServiceCompId = null;
+        document.getElementById('srv-detail-view').classList.add('hidden');
+        document.getElementById('srv-dashboard-view').classList.remove('hidden');
+        renderServiceDashboard();
+    }
+
+    function switchServiceDetailTab(tab) {
+        const btnCur = document.getElementById('srv-tab-current');
+        const btnHis = document.getElementById('srv-tab-history');
+        const bodyCur = document.getElementById('srv-detail-body-current');
+        const bodyHis = document.getElementById('srv-detail-body-history');
+
+        if (tab === 'CURRENT') {
+            btnCur.style.background = '#636366';
+            btnCur.style.color = '#fff';
+            btnHis.style.background = 'transparent';
+            btnHis.style.color = '#a1a1aa';
+            bodyCur.classList.remove('hidden');
+            bodyHis.classList.add('hidden');
+        } else {
+            btnHis.style.background = '#636366';
+            btnHis.style.color = '#fff';
+            btnCur.style.background = 'transparent';
+            btnCur.style.color = '#a1a1aa';
+            bodyHis.classList.remove('hidden');
+            bodyCur.classList.add('hidden');
+            renderServiceHistoryList();
+        }
+    }
+
+    function refreshServiceDetailUI() {
+        const comp = serviceComponents.find(c => c.id === selectedServiceCompId);
+        if (!comp) return;
+        const m = getCompMetrics(comp);
+
+        document.getElementById('srv-detail-icon').innerHTML = getServiceComponentSvg(comp.iconKey, m.color);
+        document.getElementById('srv-detail-title').innerText = comp.name;
+        document.getElementById('srv-detail-last').innerHTML = `Servis Terakhir: <strong style="color:#fff;">${escapeHtml(comp.lastService || 'Tidak tersedia')}</strong>`;
+        document.getElementById('srv-detail-advice').innerText = comp.advice || 'Periksa komponen ini secara berkala di setiap jadwal servis.';
+        document.getElementById('srv-detail-note').value = comp.note || '';
+
+        const kmBlock = document.getElementById('srv-view-km-block');
+        if (comp.hasKm) {
+            kmBlock.classList.remove('hidden');
+            document.getElementById('srv-view-rem-km').innerText = formatDotNumber(m.rKm) + ' km';
+            document.getElementById('srv-view-km-pct').innerText = m.kmPct + '%';
+            const kmBar = document.getElementById('srv-view-km-bar');
+            kmBar.style.width = m.kmPct + '%';
+            kmBar.style.background = getBarColorByPct(m.kmPct);
+        } else {
+            kmBlock.classList.add('hidden');
+        }
+
+        document.getElementById('srv-view-best-date').innerHTML = `${m.fullBestDate} &bull; ${m.rDays}hr`;
+        document.getElementById('srv-view-time-pct').innerText = m.timePct + '%';
+        const timeBar = document.getElementById('srv-view-time-bar');
+        timeBar.style.width = m.timePct + '%';
+        timeBar.style.background = getBarColorByPct(m.timePct);
+    }
+
+    // Buka Editor "Sesuaikan Umur" & Edit Interval (Gambar 28)
+    function openAdjustAgeEditor() {
+        const comp = serviceComponents.find(c => c.id === selectedServiceCompId);
+        if (!comp) return;
+        const m = getCompMetrics(comp);
+
+        editTempIntervalKm = comp.intervalKm || comp.recKm || 50000;
+        editTempRemKm = m.rKm;
+        editTempIntervalMonths = comp.intervalMonths || comp.recMonths || 24;
+        editTempRemDays = m.rDays;
+
+        const editKmBlock = document.getElementById('srv-edit-km-block');
+        if (comp.hasKm) {
+            editKmBlock.classList.remove('hidden');
+            document.getElementById('srv-edit-rec-km').innerText = `Direkomendasikan: ${formatDotNumber(comp.recKm || comp.intervalKm)} km`;
+            document.getElementById('srv-input-interval-km').value = editTempIntervalKm;
+            const kmSlider = document.getElementById('srv-slider-rem-km');
+            kmSlider.max = editTempIntervalKm;
+            kmSlider.value = editTempRemKm;
+        } else {
+            editKmBlock.classList.add('hidden');
+        }
+
+        document.getElementById('srv-edit-rec-months').innerText = `Direkomendasikan: ${comp.recMonths || comp.intervalMonths} bulan`;
+        document.getElementById('srv-input-interval-months').value = editTempIntervalMonths;
+
+        const maxDays = Math.max(1, Math.round(editTempIntervalMonths * 30.4375));
+        const daySlider = document.getElementById('srv-slider-rem-days');
+        daySlider.max = maxDays;
+        daySlider.value = Math.min(maxDays, editTempRemDays);
+
+        updateAdjustEditorLiveLabels();
+
+        document.getElementById('srv-card-view-mode').classList.add('hidden');
+        document.getElementById('srv-card-edit-mode').classList.remove('hidden');
+    }
+
+    function updateAdjustEditorLiveLabels() {
+        const comp = serviceComponents.find(c => c.id === selectedServiceCompId);
+        if (!comp) return;
+
+        // 1. Update KM Labels & Slider Fill
+        if (comp.hasKm) {
+            const maxKm = Math.max(500, parseInt(editTempIntervalKm || 50000));
+            const curKm = Math.min(maxKm, Math.max(0, parseInt(editTempRemKm || 0)));
+            const kmPct = Math.round((curKm / maxKm) * 100);
+            document.getElementById('srv-edit-rem-km-label').innerText = formatDotNumber(curKm) + ' km';
+            document.getElementById('srv-edit-km-pct-label').innerText = kmPct + '%';
+
+            const kmSlider = document.getElementById('srv-slider-rem-km');
+            kmSlider.max = maxKm;
+            kmSlider.value = curKm;
+            const cKm = getBarColorByPct(kmPct);
+            kmSlider.style.background = `linear-gradient(to right, ${cKm} 0%, ${cKm} ${kmPct}%, #2c2c2e ${kmPct}%, #2c2c2e 100%)`;
+        }
+
+        // 2. Update Time Labels & Slider Fill
+        const maxDays = Math.max(1, Math.round((editTempIntervalMonths || 12) * 30.4375));
+        const curDays = Math.min(maxDays, Math.max(0, parseInt(editTempRemDays || 0)));
+        const timePct = Math.round((curDays / maxDays) * 100);
+
+        const targetDate = new Date();
+        targetDate.setDate(targetDate.getDate() + curDays);
+        const monthsId = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        const dateStr = `${targetDate.getDate()} ${monthsId[targetDate.getMonth()]} ${targetDate.getFullYear()}`;
+
+        document.getElementById('srv-edit-best-date-label').innerHTML = `${dateStr} &bull; ${curDays}hr`;
+        document.getElementById('srv-edit-time-pct-label').innerText = timePct + '%';
+
+        const daySlider = document.getElementById('srv-slider-rem-days');
+        daySlider.max = maxDays;
+        daySlider.value = curDays;
+        const cTime = getBarColorByPct(timePct);
+        daySlider.style.background = `linear-gradient(to right, ${cTime} 0%, ${cTime} ${timePct}%, #2c2c2e ${timePct}%, #2c2c2e 100%)`;
+    }
+
+    function onEditIntervalKmInput(val) {
+        const parsed = parseInt(val);
+        if (!isNaN(parsed) && parsed >= 500) {
+            editTempIntervalKm = parsed;
+            if (editTempRemKm > editTempIntervalKm) {
+                editTempRemKm = editTempIntervalKm;
+            }
+            updateAdjustEditorLiveLabels();
+        }
+    }
+
+    function onSlideRemainingKm(val) {
+        editTempRemKm = parseInt(val) || 0;
+        updateAdjustEditorLiveLabels();
+    }
+
+    function onEditIntervalMonthsInput(val) {
+        const parsed = parseInt(val);
+        if (!isNaN(parsed) && parsed >= 1) {
+            editTempIntervalMonths = parsed;
+            const maxDays = Math.round(editTempIntervalMonths * 30.4375);
+            if (editTempRemDays > maxDays) {
+                editTempRemDays = maxDays;
+            }
+            updateAdjustEditorLiveLabels();
+        }
+    }
+
+    function onSlideRemainingDays(val) {
+        editTempRemDays = parseInt(val) || 0;
+        updateAdjustEditorLiveLabels();
+    }
+
+    function onPickTargetDate(isoVal) {
+        if (!isoVal) return;
+        const picked = new Date(isoVal);
+        const now = new Date();
+        const diffDays = Math.max(0, Math.ceil((picked.getTime() - now.getTime()) / (1000 * 3600 * 24)));
+        const maxDays = Math.round((editTempIntervalMonths || 12) * 30.4375);
+        if (diffDays > maxDays) {
+            editTempIntervalMonths = Math.max(1, Math.ceil(diffDays / 30.4375));
+            document.getElementById('srv-input-interval-months').value = editTempIntervalMonths;
+        }
+        editTempRemDays = diffDays;
+        updateAdjustEditorLiveLabels();
+    }
+
+    function cancelAdjustAgeEditor() {
+        document.getElementById('srv-card-edit-mode').classList.add('hidden');
+        document.getElementById('srv-card-view-mode').classList.remove('hidden');
+    }
+
+    function saveAdjustAgeEditor() {
+        const comp = serviceComponents.find(c => c.id === selectedServiceCompId);
+        if (!comp) return;
+
+        if (comp.hasKm) {
+            comp.intervalKm = Math.max(500, parseInt(editTempIntervalKm || comp.intervalKm));
+            comp.remKm = Math.min(comp.intervalKm, Math.max(0, parseInt(editTempRemKm || 0)));
+        }
+        comp.intervalMonths = Math.max(1, parseInt(editTempIntervalMonths || comp.intervalMonths));
+        const maxDays = Math.round(comp.intervalMonths * 30.4375);
+        comp.remDays = Math.min(maxDays, Math.max(0, parseInt(editTempRemDays || 0)));
+
+        saveServiceComponentsToStorage();
+        document.getElementById('srv-card-edit-mode').classList.add('hidden');
+        document.getElementById('srv-card-view-mode').classList.remove('hidden');
+        refreshServiceDetailUI();
+        if (typeof queueAutoSyncPayload === 'function') queueAutoSyncPayload(true);
+        showToast('✅ Interval & sisa umur ' + comp.name + ' berhasil disimpan');
+    }
+
+    function saveCurrentServiceNote(val) {
+        const comp = serviceComponents.find(c => c.id === selectedServiceCompId);
+        if (!comp) return;
+        comp.note = val;
+        saveServiceComponentsToStorage();
+    }
+
+    function markComponentServicedNow() {
+        const comp = serviceComponents.find(c => c.id === selectedServiceCompId);
+        if (!comp) return;
+
+        const now = new Date();
+        const monthsId = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        const dateFormatted = `${now.getDate()} ${monthsId[now.getMonth()]} ${now.getFullYear()}`;
+        const curOdo = parseInt(localStorage.getItem('gc_odo_km_v6') || '0');
+
+        if (comp.hasKm) {
+            comp.remKm = comp.intervalKm;
+        }
+        comp.remDays = Math.round((comp.intervalMonths || 12) * 30.4375);
+        comp.lastService = `${dateFormatted} (${formatDotNumber(curOdo)} km)`;
+
+        if (!Array.isArray(comp.history)) comp.history = [];
+        comp.history.unshift({
+            date: dateFormatted,
+            odometerKm: curOdo,
+            note: comp.note || 'Servis berkala / penggantian komponen selesai (Reset 100%)'
+        });
+
+        saveServiceComponentsToStorage();
+        refreshServiceDetailUI();
+        if (typeof queueAutoSyncPayload === 'function') queueAutoSyncPayload(true);
+        showToast('🔧 ' + comp.name + ' telah diservis (Umur direset ke 100%)');
+    }
+
+    function renderServiceHistoryList() {
+        const comp = serviceComponents.find(c => c.id === selectedServiceCompId);
+        const listEl = document.getElementById('srv-history-list');
+        if (!comp || !listEl) return;
+
+        const hist = Array.isArray(comp.history) ? comp.history : [];
+        if (hist.length === 0) {
+            listEl.innerHTML = `
+                <div style="background:#1c1c1e; border:1px solid rgba(255,255,255,0.08); border-radius:18px; padding:28px; text-align:center; color:#a1a1aa; font-size:13px;">
+                    Belum ada riwayat servis tercatat untuk <strong>${escapeHtml(comp.name)}</strong>.<br>
+                    <span style="font-size:11px; color:#71717a;">Tekan tombol "Servis Komponen" saat Anda mengganti atau menyervis komponen ini.</span>
+                </div>
+            `;
+            return;
+        }
+
+        listEl.innerHTML = hist.map(h => `
+            <div style="background:#1c1c1e; border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:14px 18px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <div style="font-size:14px; font-weight:800; color:#fff;">${escapeHtml(h.date)}</div>
+                    <div style="font-size:12px; color:#a1a1aa; margin-top:2px;">${escapeHtml(h.note)}</div>
+                </div>
+                <span style="font-size:12px; font-weight:800; color:#38bdf8; background:rgba(56,189,248,0.12); padding:4px 10px; border-radius:999px;">Odo: ${formatDotNumber(h.odometerKm)} km</span>
+            </div>
+        `).join('');
+    }
+
+    function openAddServiceCompModal() {
+        document.getElementById('new-comp-name').value = '';
+        document.getElementById('srv-add-comp-modal').classList.remove('hidden');
+    }
+
+    function closeAddServiceCompModal() {
+        document.getElementById('srv-add-comp-modal').classList.add('hidden');
+    }
+
+    function confirmAddServiceComp() {
+        const name = (document.getElementById('new-comp-name').value || '').trim();
+        if (!name) {
+            showToast('Masukkan nama komponen terlebih dahulu');
+            return;
+        }
+        const kmVal = parseInt(document.getElementById('new-comp-km').value) || 0;
+        const moVal = Math.max(1, parseInt(document.getElementById('new-comp-months').value) || 12);
+        const hasKm = kmVal > 0;
+        const newComp = {
+            id: 'comp_' + Date.now(),
+            name: name,
+            iconKey: 'timing_belt',
+            hasKm: hasKm,
+            recKm: kmVal,
+            intervalKm: kmVal,
+            remKm: kmVal,
+            recMonths: moVal,
+            intervalMonths: moVal,
+            remDays: Math.round(moVal * 30.4375),
+            advice: 'Periksa kondisi ' + name + ' di setiap servis berkala dan ganti sesuai interval.',
+            lastService: 'Tidak tersedia',
+            note: '',
+            history: []
+        };
+        serviceComponents.push(newComp);
+        saveServiceComponentsToStorage();
+        closeAddServiceCompModal();
+        renderServiceDashboard();
+        if (typeof queueAutoSyncPayload === 'function') queueAutoSyncPayload(true);
+        showToast('✅ Komponen ' + name + ' ditambahkan');
+    }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            renderServiceDashboard();
+            ensureDefaultCarSlot();
+            renderRekapMonthPills();
+            initParkingMap();
+            renderHeaderAndSelector();
+            renderActiveVehicleUI();
+            pullCloudData(false);
+        });
+    </script>
+</body>
+</html>

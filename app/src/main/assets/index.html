@@ -91,43 +91,63 @@
 </head>
 <body>
 
-    <!-- ======================= MODAL 1: AKUN GMAIL & PAIRING MOBIL ======================= -->
+    <!-- ======================= MODAL 1: PAIRING MOBIL & PENGATURAN ======================= -->
     <div id="account-modal" class="hidden-tab fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-5">
-        <div class="card-dark w-full max-w-md rounded-3xl p-6 space-y-5 border border-zinc-800 shadow-2xl">
+        <div class="card-dark w-full max-w-md max-h-[92vh] overflow-y-auto rounded-3xl p-6 space-y-5 border border-zinc-800 shadow-2xl">
             <div class="flex justify-between items-center">
                 <div>
-                    <div class="text-[10px] font-extrabold tracking-widest text-amber-400 uppercase">SINKRONISASI CLOUD OTOMATIS</div>
-                    <h3 class="text-xl font-black text-white mt-0.5">Akun Gmail & Pairing Mobil</h3>
+                    <div class="text-[10px] font-extrabold tracking-widest text-amber-400 uppercase">SINKRONISASI TERENKRIPSI</div>
+                    <h3 class="text-xl font-black text-white mt-0.5">Pairing Mobil</h3>
                 </div>
                 <button onclick="closeAccountModal()" class="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 font-bold text-xs">✕</button>
             </div>
 
             <div class="bg-zinc-900/80 p-4 rounded-2xl border border-zinc-800 space-y-2.5">
-                <div class="flex items-center gap-2">
-                    <span class="text-sm">📧</span>
-                    <span class="text-xs font-extrabold text-white">Login dengan Akun Gmail</span>
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-extrabold text-white">🚗 Tambah Mobil via Kode Aman</span>
+                    <span class="text-[10px] text-amber-400 font-bold">12 Karakter</span>
                 </div>
                 <p class="text-[11px] text-zinc-400 leading-relaxed">
-                    Masukkan alamat Gmail yang sama dengan Headunit. Semua mobil Anda (Mobil A, Mobil B) otomatis terhubung tanpa tercampur.
+                    Buka <strong class="text-white">PangDash → Setelan → Pairing</strong>, lalu masukkan kode <span class="text-amber-400 font-bold">PD-XXXX-XXXX-XXXX</span>. Data perjalanan & servis dikirim terenkripsi.
                 </p>
-                <input id="modal-gmail-input" type="email" placeholder="nama.anda@gmail.com" class="w-full px-3.5 py-2.5 rounded-xl bg-black border border-zinc-700 text-white text-xs font-bold focus:outline-none focus:border-amber-400">
-                <button onclick="saveGmailAndSync()" class="w-full py-2.5 bg-amber-400 text-black font-extrabold rounded-xl text-xs tracking-wider">
-                    SIMPAN & HUBUNGKAN GMAIL
+                <div class="grid grid-cols-2 gap-2">
+                    <input id="modal-car-name" type="text" placeholder="Nama (mis: Mobil A)" class="w-full px-3 py-2.5 rounded-xl bg-black border border-zinc-700 text-white text-xs font-bold">
+                    <input id="modal-car-code" type="text" placeholder="PD-XXXX-XXXX-XXXX" maxlength="17" autocomplete="off" autocapitalize="characters" spellcheck="false" class="w-full px-3 py-2.5 rounded-xl bg-black border border-zinc-700 text-amber-400 text-xs font-extrabold uppercase tracking-wider">
+                </div>
+                <button onclick="addVehicleByCode()" class="w-full py-2.5 bg-amber-400 text-black font-extrabold rounded-xl text-xs tracking-wider">
+                    + HUBUNGKAN KENDARAAN
                 </button>
             </div>
 
             <div class="bg-zinc-900/80 p-4 rounded-2xl border border-zinc-800 space-y-2.5">
                 <div class="flex items-center justify-between">
-                    <span class="text-xs font-extrabold text-white">🚗 Tambah Mobil via Kode ID</span>
-                    <span class="text-[10px] text-amber-400 font-bold">Lihat di Setelan Launcher</span>
+                    <span class="text-xs font-extrabold text-white">📋 Mobil Terhubung</span>
+                    <span id="paired-cars-count" class="text-[10px] text-zinc-500 font-bold">0 mobil</span>
                 </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <input id="modal-car-name" type="text" placeholder="Nama (mis: Mobil A)" class="w-full px-3 py-2.5 rounded-xl bg-black border border-zinc-700 text-white text-xs font-bold">
-                    <input id="modal-car-code" type="text" placeholder="Kode (mis: GC-4829)" class="w-full px-3 py-2.5 rounded-xl bg-black border border-zinc-700 text-amber-400 text-xs font-extrabold uppercase">
+                <div id="paired-cars-list" class="space-y-2"></div>
+            </div>
+
+            <div class="bg-zinc-900/80 p-4 rounded-2xl border border-zinc-800 space-y-2.5">
+                <div class="flex items-center gap-2">
+                    <span class="text-sm">🏷️</span>
+                    <span class="text-xs font-extrabold text-white">Label Akun (Opsional)</span>
                 </div>
-                <button onclick="addVehicleByCode()" class="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-white font-extrabold rounded-xl text-xs tracking-wider">
-                    + TAMBAHKAN KENDARAAN
+                <p class="text-[11px] text-zinc-400 leading-relaxed">
+                    Hanya untuk menandai pemilik akun. Tidak lagi dipakai sebagai topik sinkronisasi.
+                </p>
+                <input id="modal-gmail-input" type="email" placeholder="nama.anda@gmail.com" class="w-full px-3.5 py-2.5 rounded-xl bg-black border border-zinc-700 text-white text-xs font-bold focus:outline-none focus:border-amber-400">
+                <button onclick="saveGmailAndSync()" class="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 text-white font-extrabold rounded-xl text-xs tracking-wider">
+                    SIMPAN LABEL AKUN
                 </button>
+            </div>
+
+            <div class="bg-red-950/30 p-4 rounded-2xl border border-red-900/50 space-y-2">
+                <div class="text-xs font-extrabold text-red-400">Zona Bahaya (Mobil Aktif)</div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="resetActiveVehicleData()" class="py-2.5 bg-zinc-900 border border-red-900/60 text-red-300 font-extrabold rounded-xl text-[11px]">RESET DATA</button>
+                    <button onclick="deleteActiveVehicle()" class="py-2.5 bg-red-900/50 border border-red-800 text-red-200 font-extrabold rounded-xl text-[11px]">HAPUS MOBIL</button>
+                </div>
+                <p class="text-[10px] text-zinc-500 leading-relaxed">Reset menghapus statistik, riwayat trip, dan data servis mobil aktif. Hapus mobil juga menghapus kunci pairing dari HP ini.</p>
             </div>
         </div>
     </div>
@@ -181,7 +201,7 @@
         <div class="flex justify-between items-center mb-2.5">
             <div class="flex items-center gap-2">
                 <span id="header-sync-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
-                <span id="header-gmail-text" class="text-[11px] font-bold text-zinc-400 truncate max-w-[200px]">Belum Login Gmail</span>
+                <span id="header-gmail-text" class="text-[11px] font-bold text-zinc-400 truncate max-w-[200px]">Pairing Mobil Terenkripsi</span>
             </div>
             <button onclick="openAccountModal()" class="text-[10px] font-extrabold text-amber-400 bg-amber-400/10 border border-amber-400/30 px-2.5 py-1 rounded-lg">
                 👤 Akun & +Mobil
@@ -599,6 +619,7 @@
         </div>
     </div>
 
+    <script src="sync-secure.js"></script>
     <script>
         // Escape semua data dinamis sebelum dimasukkan ke innerHTML (anti HTML/JS injection).
         function escapeHtml(value) {
@@ -617,14 +638,40 @@
         let vehiclesMap = JSON.parse(localStorage.getItem('gc_hp_vehicles_v4') || '{}');
         let activeCarCode = localStorage.getItem('gc_hp_active_car') || '';
         let activeEventSources = {};
+        let syncSessions = {};
+        let serviceChunkStates = {};
+        let serviceComponents = [];
 
         let currentStatPeriod = 'WEEKLY'; // 'WEEKLY' | 'MONTHLY'
         let currentCatFilter = 'ALL';     // 'ALL' | 'KERJA' | 'PRIBADI'
 
-        function createEmptyCarState(code, name) {
+        function deepCopy(obj) {
+            return JSON.parse(JSON.stringify(obj));
+        }
+
+        function migrateServiceComponentDates(list) {
+            if (!Array.isArray(list)) return list;
+            for (const comp of list) {
+                if (!Array.isArray(comp.history)) comp.history = [];
+                if (typeof comp.updatedAt !== 'number') comp.updatedAt = 0;
+                if (comp.lastServiceDateIso === undefined) {
+                    comp.lastServiceDateIso = parseIndoDateToIso(comp.lastService);
+                }
+                if (!comp.remDays && comp.intervalMonths) {
+                    comp.remDays = Math.round(comp.intervalMonths * 30.4375);
+                }
+            }
+            return list;
+        }
+
+        function createEmptyCarState(code, name, extra) {
+            const meta = extra || {};
             return {
-                pairingCode: code,
+                carId: meta.carId || code,
+                pairingCode: meta.pairingCode || code,
+                pairingSecret: meta.pairingSecret || '',
                 vehicleName: name || ('MOBIL (' + code + ')'),
+                monthKey: '',
                 totalMonthlyKm: 0.0,
                 tripsCount: 0,
                 totalDurationSec: 0,
@@ -636,26 +683,40 @@
                 lastLat: null,
                 lastLng: null,
                 updatedAt: null,
-                tripHistory: [] // Daftar sesi perjalanan per jam { tripId, dateIso, startTime, endTime, distanceKm, durationMinutes, avgSpeedKmh, maxSpeedKmh, category, timestamp }
+                tripHistory: [], // { tripId, dateIso, startTime, endTime, distanceKm, durationMinutes, avgSpeedKmh, maxSpeedKmh, category, timestamp }
+                serviceComponents: deepCopy(typeof DEFAULT_SERVICE_COMPONENTS !== 'undefined' ? DEFAULT_SERVICE_COMPONENTS : [])
             };
         }
 
         function ensureDefaultCarSlot() {
+            // Bersihkan placeholder lama yang tidak pernah menerima data.
+            if (vehiclesMap['MOBIL-A'] && !vehiclesMap['MOBIL-A'].pairingSecret && !vehiclesMap['MOBIL-A'].updatedAt) {
+                delete vehiclesMap['MOBIL-A'];
+            }
+            const legacyService = JSON.parse(localStorage.getItem('gc_service_components_v11') || 'null');
             const codes = Object.keys(vehiclesMap);
-            if (codes.length === 0) {
-                vehiclesMap['MOBIL-A'] = createEmptyCarState('MOBIL-A', 'Mobil A');
-                activeCarCode = 'MOBIL-A';
-                saveVehiclesToStorage();
-            } else if (!activeCarCode || !vehiclesMap[activeCarCode]) {
-                activeCarCode = codes[0];
-                localStorage.setItem('gc_hp_active_car', activeCarCode);
-            }
-            // Pastikan array tripHistory selalu ada
-            for (const c of Object.keys(vehiclesMap)) {
-                if (!Array.isArray(vehiclesMap[c].tripHistory)) {
-                    vehiclesMap[c].tripHistory = [];
+            for (const c of codes) {
+                const car = vehiclesMap[c];
+                if (!Array.isArray(car.tripHistory)) car.tripHistory = [];
+                if (!car.carId) car.carId = c;
+                if (!car.pairingCode) car.pairingCode = c;
+                if (!Array.isArray(car.serviceComponents) || car.serviceComponents.length === 0) {
+                    car.serviceComponents = deepCopy(
+                        (Array.isArray(legacyService) && legacyService.length) ? legacyService : DEFAULT_SERVICE_COMPONENTS
+                    );
                 }
+                migrateServiceComponentDates(car.serviceComponents);
             }
+            if (!activeCarCode || !vehiclesMap[activeCarCode]) {
+                activeCarCode = Object.keys(vehiclesMap)[0] || '';
+            }
+            syncServiceComponentsRef();
+            saveVehiclesToStorage();
+        }
+
+        function syncServiceComponentsRef() {
+            const car = vehiclesMap[activeCarCode];
+            serviceComponents = (car && Array.isArray(car.serviceComponents)) ? car.serviceComponents : [];
         }
 
         function saveVehiclesToStorage() {
@@ -783,6 +844,11 @@
             const hrs = Math.floor(sec / 3600);
             const mins = Math.floor((sec % 3600) / 60);
             return hrs + ' j ' + mins + ' mnt';
+        }
+
+        function currentMonthKey(date) {
+            const d = date || new Date();
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
         }
 
         // Render Bulan Rekap Bulanan secara dinamis (4 bulan terakhir berurutan)
@@ -1104,7 +1170,7 @@
         // 6. RENDER UTAMA UI APLIKASI HP
         // =========================================================================
         function renderHeaderAndSelector() {
-            document.getElementById('header-gmail-text').innerText = userGmail ? ('📧 ' + userGmail) : 'Belum Login Gmail (Ketuk Akun)';
+            document.getElementById('header-gmail-text').innerText = userGmail ? ('🏷️ ' + userGmail) : 'Pairing Mobil Terenkripsi';
             const bar = document.getElementById('vehicle-selector-bar');
             const codes = Object.keys(vehiclesMap);
             bar.innerHTML = codes.map(code => {
@@ -1113,16 +1179,24 @@
                 const cls = isActive
                     ? 'px-3.5 py-1.5 bg-amber-400 text-black rounded-xl whitespace-nowrap shadow'
                     : 'px-3.5 py-1.5 bg-zinc-900 text-zinc-400 border border-zinc-800 rounded-xl whitespace-nowrap';
-                return `<button onclick="selectVehicle('${code}')" class="${cls}">🚗 ${escapeHtml(car.vehicleName)} <span class="opacity-70 text-[10px]">(${escapeHtml(code)})</span></button>`;
+                return `<button onclick="selectVehicle('${code}')" class="${cls}">🚗 ${escapeHtml(car.vehicleName)} <span class="opacity-70 text-[10px]">(${escapeHtml(car.pairingCode || code)})</span></button>`;
             }).join('') + `<button onclick="openAccountModal()" class="px-3 py-1.5 bg-zinc-900/60 text-amber-400 border border-amber-400/30 rounded-xl whitespace-nowrap">+ Mobil Baru</button>`;
+            renderPairedCarsList();
         }
 
         function selectVehicle(code) {
             if (!vehiclesMap[code]) return;
             activeCarCode = code;
+            selectedServiceCompId = null;
+            const detailView = document.getElementById('srv-detail-view');
+            const dashView = document.getElementById('srv-dashboard-view');
+            if (detailView) detailView.classList.add('hidden');
+            if (dashView) dashView.classList.remove('hidden');
             saveVehiclesToStorage();
+            syncServiceComponentsRef();
             renderHeaderAndSelector();
             renderActiveVehicleUI();
+            renderServiceDashboard();
             pullCloudData(false);
         }
 
@@ -1146,12 +1220,12 @@
             let maxDist = parseFloat(car.longestTripKm || 0);
 
             if (filteredTrips.length > 0 && currentCatFilter !== 'ALL') {
-                kmVal = filteredTrips.reduce((s, t) => s + Number(t.distanceKm || 0), 0);
-                tripsCnt = filteredTrips.length;
-                durSec = filteredTrips.reduce((s, t) => s + (Number(t.durationMinutes || 0) * 60), 0);
-                maxDist = Math.max(0, ...filteredTrips.map(t => Number(t.distanceKm || 0)));
-            } else if (filteredTrips.length > tripsCnt) {
-                tripsCnt = filteredTrips.length;
+                const monthPrefix = currentMonthKey();
+                const monthTrips = filteredTrips.filter(t => (t.dateIso || '').slice(0, 7) === monthPrefix);
+                kmVal = monthTrips.reduce((s, t) => s + Number(t.distanceKm || 0), 0);
+                tripsCnt = monthTrips.length;
+                durSec = monthTrips.reduce((s, t) => s + (Number(t.durationMinutes || 0) * 60), 0);
+                maxDist = Math.max(0, ...monthTrips.map(t => Number(t.distanceKm || 0)));
             }
 
             // Tab Garasi (Rekap Bulanan)
@@ -1195,17 +1269,27 @@
         }
 
         // =========================================================================
-        // 7. SINKRONISASI CLOUD OTOMATIS (MENERIMA LIVE STATE & LOG SESI PER JAM)
+        // 7. SINKRONISASI TERENKRIPSI PER MOBIL (PDSync v1)
         // =========================================================================
-        function getGmailChannelTopic(email) {
-            if (!email || !email.includes('@')) return '';
-            const clean = email.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-            return 'panglink_gmail_' + clean;
+        const seenSyncNonces = {};
+
+        function rememberNonce(carId, purpose, nonce) {
+            if (!nonce) return false;
+            const key = carId + '|' + purpose;
+            if (!seenSyncNonces[key]) seenSyncNonces[key] = new Set();
+            const set = seenSyncNonces[key];
+            if (set.has(nonce)) return true;
+            set.add(nonce);
+            if (set.size > 800) set.delete(set.values().next().value);
+            return false;
         }
 
-        function getCarChannelTopic(code) {
-            const clean = (code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-            return 'panglink_car_' + clean;
+        async function getSessionForCar(car) {
+            if (!car || !car.pairingSecret) return null;
+            if (syncSessions[car.carId]) return syncSessions[car.carId];
+            const session = await PDSync.createSession(car.pairingSecret);
+            syncSessions[car.carId] = session;
+            return session;
         }
 
         function mergeTripLogs(existingLogs, incomingLogs, singleCompletedTrip) {
@@ -1224,87 +1308,197 @@
             return Object.values(mapById).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
         }
 
-        function applyIncomingPayload(data) {
-            if (!data || !data.pairingCode) return;
-            const code = String(data.pairingCode).toUpperCase();
+        function applyIncomingState(data, session) {
+            if (!data || !session) return;
+            const carId = session.carId;
+            const existing = vehiclesMap[carId];
+            if (existing && existing.updatedAt && data.updatedAt && data.updatedAt < existing.updatedAt) return;
 
-            if (vehiclesMap['MOBIL-A'] && vehiclesMap['MOBIL-A'].totalMonthlyKm === 0 && !vehiclesMap['MOBIL-A'].updatedAt && code !== 'MOBIL-A') {
-                delete vehiclesMap['MOBIL-A'];
-                if (activeCarCode === 'MOBIL-A') activeCarCode = code;
-            }
+            const car = existing || createEmptyCarState(carId, data.vehicleName, {
+                carId: carId,
+                pairingCode: '',
+                pairingSecret: ''
+            });
+            const mergedHistory = mergeTripLogs(car.tripHistory, data.tripHistory);
 
-            const existing = vehiclesMap[code] || createEmptyCarState(code, data.vehicleName);
-            const mergedHistory = mergeTripLogs(existing.tripHistory, data.tripHistory, data.latestCompletedTrip);
+            car.vehicleName = data.vehicleName || car.vehicleName || ('Mobil ' + carId);
+            car.monthKey = data.monthKey || car.monthKey || '';
+            car.totalMonthlyKm = Number(data.totalMonthlyKm ?? car.totalMonthlyKm ?? 0);
+            car.tripsCount = Number(data.tripsCount ?? car.tripsCount ?? 0);
+            car.totalDurationSec = Number(data.totalDurationSec ?? car.totalDurationSec ?? 0);
+            car.activeDaysCount = Number(data.activeDaysCount ?? car.activeDaysCount ?? 0);
+            car.longestTripKm = Number(data.longestTripKm ?? car.longestTripKm ?? 0);
+            car.maxSpeedKmh = Number(data.maxSpeedKmh ?? car.maxSpeedKmh ?? 0);
+            car.avgSpeedKmh = Number(data.avgSpeedKmh ?? car.avgSpeedKmh ?? 0);
+            car.odometerKm = Number(data.odometerKm ?? car.odometerKm ?? 0);
+            car.lastLat = data.lastLat ?? car.lastLat;
+            car.lastLng = data.lastLng ?? car.lastLng;
+            car.updatedAt = data.updatedAt || Date.now();
+            car.tripHistory = mergedHistory;
+            if (!Array.isArray(car.serviceComponents)) car.serviceComponents = [];
 
-            if (Array.isArray(data.serviceComponents) && data.serviceComponents.length > 0) {
-                serviceComponents = data.serviceComponents;
-                saveServiceComponentsToStorage();
-                if (typeof renderServiceDashboard === 'function') renderServiceDashboard();
-            }
-            if (!existing.updatedAt || (data.updatedAt && data.updatedAt >= existing.updatedAt)) {
-                vehiclesMap[code] = {
-                    pairingCode: code,
-                    vehicleName: data.vehicleName || existing.vehicleName || ('Mobil ' + code),
-                    totalMonthlyKm: Number(data.totalMonthlyKm ?? existing.totalMonthlyKm ?? 0),
-                    tripsCount: Math.max(Number(data.tripsCount ?? 0), mergedHistory.length),
-                    totalDurationSec: Number(data.totalDurationSec ?? existing.totalDurationSec ?? 0),
-                    activeDaysCount: Number(data.activeDaysCount ?? existing.activeDaysCount ?? 0),
-                    longestTripKm: Number(data.longestTripKm ?? existing.longestTripKm ?? 0),
-                    maxSpeedKmh: Number(data.maxSpeedKmh ?? existing.maxSpeedKmh ?? 0),
-                    avgSpeedKmh: Number(data.avgSpeedKmh ?? existing.avgSpeedKmh ?? 0),
-                    odometerKm: Number(data.odometerKm ?? existing.odometerKm ?? 0),
-                    lastLat: data.lastLat ?? existing.lastLat,
-                    lastLng: data.lastLng ?? existing.lastLng,
-                    updatedAt: data.updatedAt || Date.now(),
-                    tripHistory: mergedHistory
-                };
-            } else {
-                existing.tripHistory = mergedHistory;
-                vehiclesMap[code] = existing;
-            }
-
-            if (!activeCarCode || !vehiclesMap[activeCarCode]) {
-                activeCarCode = code;
-            }
+            vehiclesMap[carId] = car;
+            if (!activeCarCode || !vehiclesMap[activeCarCode]) activeCarCode = carId;
             saveVehiclesToStorage();
             renderHeaderAndSelector();
+            syncServiceComponentsRef();
             renderActiveVehicleUI();
-            document.getElementById('net-text').innerText = 'Tersinkron: ' + vehiclesMap[code].vehicleName + ' (' + formatKmDisplay(vehiclesMap[code].totalMonthlyKm) + ' KM)';
+            document.getElementById('net-text').innerText = 'Tersinkron: ' + car.vehicleName + ' (' + formatKmDisplay(car.totalMonthlyKm) + ' KM)';
         }
 
-        async function fetchTopicHistory(topic) {
-            if (!topic || !navigator.onLine) return;
+        function applyIncomingService(payload, session) {
+            if (!payload || !Array.isArray(payload.components) || !session) return;
+            const car = vehiclesMap[session.carId];
+            if (!car) return;
+
+            let components = payload.components;
+            if (payload.part && payload.total > 1) {
+                const chunkKey = session.carId;
+                if (!serviceChunkStates[chunkKey] || serviceChunkStates[chunkKey].updatedAt !== payload.updatedAt) {
+                    serviceChunkStates[chunkKey] = { updatedAt: payload.updatedAt, total: payload.total, parts: {} };
+                }
+                serviceChunkStates[chunkKey].parts[payload.part] = components;
+                if (Object.keys(serviceChunkStates[chunkKey].parts).length < payload.total) return;
+                const merged = [];
+                for (let i = 1; i <= payload.total; i++) {
+                    merged.push(...(serviceChunkStates[chunkKey].parts[i] || []));
+                }
+                serviceChunkStates[chunkKey] = null;
+                components = merged;
+            }
+
+            if (!Array.isArray(car.serviceComponents) || car.serviceComponents.length === 0) {
+                car.serviceComponents = deepCopy(DEFAULT_SERVICE_COMPONENTS);
+            }
+            let changed = false;
+            for (const incoming of components) {
+                if (!incoming || !incoming.id) continue;
+                let comp = car.serviceComponents.find(c => c.id === incoming.id);
+                if (!comp) {
+                    if (!incoming.name) continue;
+                    comp = {
+                        id: incoming.id,
+                        name: incoming.name,
+                        iconKey: incoming.iconKey || 'timing_belt',
+                        hasKm: !!incoming.hasKm,
+                        recKm: Number(incoming.intervalKm || 0),
+                        intervalKm: Number(incoming.intervalKm || 0),
+                        remKm: Number(incoming.remKm || 0),
+                        recMonths: Number(incoming.intervalMonths || 12),
+                        intervalMonths: Number(incoming.intervalMonths || 12),
+                        remDays: Number(incoming.remDays || 0),
+                        advice: 'Periksa kondisi ' + incoming.name + ' secara berkala.',
+                        lastService: incoming.lastService || 'Tidak tersedia',
+                        lastServiceDateIso: incoming.lastServiceDateIso || '',
+                        note: incoming.note || '',
+                        history: [],
+                        updatedAt: 0
+                    };
+                    car.serviceComponents.push(comp);
+                    changed = true;
+                }
+                if (Number(incoming.updatedAt || 0) < Number(comp.updatedAt || 0)) continue;
+                comp.remKm = Number(incoming.remKm ?? comp.remKm);
+                comp.remDays = Number(incoming.remDays ?? comp.remDays);
+                comp.lastService = incoming.lastService || comp.lastService;
+                comp.lastServiceDateIso = incoming.lastServiceDateIso || comp.lastServiceDateIso;
+                comp.note = incoming.note ?? comp.note;
+                // Timestamp 0 dari snapshot lama harus tetap 0 agar update baru menang.
+                comp.updatedAt = Number(incoming.updatedAt || 0);
+                if (incoming.name) comp.name = incoming.name;
+                if (incoming.iconKey) comp.iconKey = incoming.iconKey;
+                if (incoming.hasKm !== undefined) comp.hasKm = !!incoming.hasKm;
+                if (incoming.intervalKm !== undefined) {
+                    comp.intervalKm = Number(incoming.intervalKm);
+                    comp.recKm = comp.intervalKm;
+                }
+                if (incoming.intervalMonths !== undefined) {
+                    comp.intervalMonths = Number(incoming.intervalMonths);
+                    comp.recMonths = comp.intervalMonths;
+                }
+                changed = true;
+            }
+            if (!changed) return;
+            saveVehiclesToStorage();
+            if (car.carId === activeCarCode) {
+                syncServiceComponentsRef();
+                renderServiceDashboard();
+                if (selectedServiceCompId) refreshServiceDetailUI();
+            }
+        }
+
+        async function handleSecureMessage(car, purpose, message) {
+            if (!message || !car) return;
+            const session = await getSessionForCar(car);
+            if (!session) return;
+            const env = await PDSync.open(session, purpose, message);
+            if (!env || rememberNonce(session.carId, purpose, env.nonce)) return;
+            if (purpose === 'state') applyIncomingState(env.payload, session);
+            else applyIncomingService(env.payload, session);
+        }
+
+        async function pollCarTopics(car) {
+            const session = await getSessionForCar(car);
+            if (!session) return;
             try {
-                const res = await fetch('https://ntfy.sh/' + topic + '/json?poll=1&since=all');
-                const text = await res.text();
-                const lines = text.split('\n').filter(Boolean);
-                for (const line of lines) {
-                    try {
-                        const evt = JSON.parse(line);
-                        if (evt.event === 'message' && evt.message) {
-                            const payload = JSON.parse(evt.message);
-                            applyIncomingPayload(payload);
-                        }
-                    } catch (_inner) {}
+                const res = await fetch('https://ntfy.sh/' + session.stateTopic + '/json?poll=1&since=all');
+                if (res.ok) {
+                    const lines = (await res.text()).split('\n').filter(Boolean).slice(-40);
+                    for (const line of lines) {
+                        try {
+                            const evt = JSON.parse(line);
+                            if (evt.event === 'message') await handleSecureMessage(car, 'state', evt.message);
+                        } catch (_e) {}
+                    }
+                }
+            } catch (_e) {}
+            try {
+                const res = await fetch('https://ntfy.sh/' + session.serviceTopic + '/json?poll=1&since=all');
+                if (res.ok) {
+                    const lines = (await res.text()).split('\n').filter(Boolean).slice(-150);
+                    for (const line of lines) {
+                        try {
+                            const evt = JSON.parse(line);
+                            if (evt.event === 'message') await handleSecureMessage(car, 'service', evt.message);
+                        } catch (_e) {}
+                    }
                 }
             } catch (_e) {}
         }
 
-        function subscribeLiveTopic(topic) {
-            if (!topic || activeEventSources[topic] || typeof EventSource === 'undefined') return;
-            try {
-                const es = new EventSource('https://ntfy.sh/' + topic + '/sse');
-                es.onmessage = function(e) {
+        function subscribeCarTopics(car) {
+            if (!car || !car.pairingSecret || typeof EventSource === 'undefined') return;
+            getSessionForCar(car).then(session => {
+                if (!session) return;
+                const pairs = [
+                    { purpose: 'state', topic: session.stateTopic },
+                    { purpose: 'service', topic: session.serviceTopic }
+                ];
+                for (const p of pairs) {
+                    const key = session.carId + ':' + p.purpose;
+                    if (activeEventSources[key]) continue;
                     try {
-                        const evt = JSON.parse(e.data);
-                        if (evt.message) {
-                            const payload = JSON.parse(evt.message);
-                            applyIncomingPayload(payload);
-                        }
-                    } catch (_err) {}
-                };
-                activeEventSources[topic] = es;
-            } catch (_e) {}
+                        const es = new EventSource('https://ntfy.sh/' + p.topic + '/sse');
+                        es.onmessage = function (e) {
+                            try {
+                                const evt = JSON.parse(e.data);
+                                if (evt.message) handleSecureMessage(car, p.purpose, evt.message);
+                            } catch (_err) {}
+                        };
+                        activeEventSources[key] = es;
+                    } catch (_e) {}
+                }
+            }).catch(() => {});
+        }
+
+        function closeCarEventSources(carId) {
+            for (const key of Object.keys(activeEventSources)) {
+                if (key.indexOf(carId + ':') === 0) {
+                    try { activeEventSources[key].close(); } catch (_e) {}
+                    delete activeEventSources[key];
+                }
+            }
+            delete syncSessions[carId];
         }
 
         async function pullCloudData(showNotification) {
@@ -1312,26 +1506,80 @@
                 showToast('HP sedang offline, periksa koneksi internet');
                 return;
             }
-            document.getElementById('net-text').innerText = 'Menarik data terbaru dari Cloud...';
-            const gTopic = getGmailChannelTopic(userGmail);
-            if (gTopic) {
-                await fetchTopicHistory(gTopic);
-                subscribeLiveTopic(gTopic);
+            document.getElementById('net-text').innerText = 'Menarik data terenkripsi dari Cloud...';
+            const paired = Object.values(vehiclesMap).filter(c => c && c.pairingSecret);
+            if (paired.length === 0) {
+                document.getElementById('net-text').innerText = 'Belum ada mobil terhubung';
+                if (showNotification) showToast('Hubungkan mobil dengan kode pairing dari PangDash');
+                return;
             }
-            for (const code of Object.keys(vehiclesMap)) {
-                if (code !== 'MOBIL-A') {
-                    const cTopic = getCarChannelTopic(code);
-                    await fetchTopicHistory(cTopic);
-                    subscribeLiveTopic(cTopic);
-                }
+            for (const car of paired) {
+                await pollCarTopics(car);
+                subscribeCarTopics(car);
             }
             const car = vehiclesMap[activeCarCode];
             document.getElementById('net-text').innerText = car && car.updatedAt
                 ? ('Tersinkron: ' + car.vehicleName + ' (' + formatKmDisplay(car.totalMonthlyKm) + ' KM)')
-                : 'Siap Menerima Data (' + (car ? car.pairingCode : '0,0 KM') + ')';
-            if (showNotification) {
-                showToast('Sinkronisasi Cloud selesai');
-            }
+                : 'Siap Menerima Data (' + (car ? car.vehicleName : '0,0 KM') + ')';
+            if (showNotification) showToast('Sinkronisasi terenkripsi selesai');
+        }
+
+        function postNtfy(topic, body) {
+            return fetch('https://ntfy.sh/' + topic, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                body: body
+            });
+        }
+
+        function compactServiceComponent(comp) {
+            // Sertakan definisi lengkap agar konsisten antar versi aplikasi.
+            return {
+                id: comp.id,
+                name: comp.name || comp.id,
+                iconKey: comp.iconKey || 'timing_belt',
+                hasKm: !!comp.hasKm,
+                intervalKm: Number(comp.intervalKm || 0),
+                intervalMonths: Number(comp.intervalMonths || 12),
+                remKm: Number(comp.remKm || 0),
+                remDays: Number(comp.remDays || 0),
+                lastService: comp.lastService || '',
+                lastServiceDateIso: comp.lastServiceDateIso || '',
+                note: String(comp.note || '').slice(0, 160),
+                updatedAt: Number(comp.updatedAt || 0)
+            };
+        }
+
+        async function publishServiceFromPhone() {
+            const car = vehiclesMap[activeCarCode];
+            if (!car || !car.pairingSecret || !navigator.onLine) return;
+            try {
+                const session = await getSessionForCar(car);
+                if (!session) return;
+                const comps = serviceComponents.map(compactServiceComponent);
+                const updatedAt = Date.now();
+                const single = await PDSync.seal(session, 'service', { components: comps, updatedAt: updatedAt });
+                if (single.length <= 3800) {
+                    await postNtfy(session.serviceTopic, single);
+                    return;
+                }
+                const chunks = [];
+                let current = [];
+                for (const comp of comps) {
+                    current.push(comp);
+                    const test = await PDSync.seal(session, 'service', { components: current, updatedAt: updatedAt });
+                    if (test.length > 3800 && current.length > 1) {
+                        current.pop();
+                        chunks.push(current);
+                        current = [comp];
+                    }
+                }
+                if (current.length) chunks.push(current);
+                for (let i = 0; i < chunks.length; i++) {
+                    const text = await PDSync.seal(session, 'service', { components: chunks[i], updatedAt: updatedAt, part: i + 1, total: chunks.length });
+                    await postNtfy(session.serviceTopic, text);
+                }
+            } catch (_e) {}
         }
 
         // =========================================================================
@@ -1339,49 +1587,134 @@
         // =========================================================================
         function openAccountModal() {
             document.getElementById('modal-gmail-input').value = userGmail;
+            renderPairedCarsList();
             document.getElementById('account-modal').classList.remove('hidden-tab');
         }
         function closeAccountModal() {
             document.getElementById('account-modal').classList.add('hidden-tab');
         }
-        function saveGmailAndSync() {
-            const val = document.getElementById('modal-gmail-input').value.trim().toLowerCase();
-            if (!val || !val.includes('@')) {
-                showToast('Masukkan alamat email Gmail yang valid');
+
+        function renderPairedCarsList() {
+            const list = document.getElementById('paired-cars-list');
+            const count = document.getElementById('paired-cars-count');
+            if (!list) return;
+            const cars = Object.values(vehiclesMap).filter(c => c && c.pairingSecret);
+            if (count) count.innerText = cars.length + ' mobil';
+            if (cars.length === 0) {
+                list.innerHTML = '<div class="text-[11px] text-zinc-500 py-1">Belum ada mobil terhubung. Masukkan kode pairing dari PangDash.</div>';
                 return;
             }
+            list.innerHTML = cars.map(car => {
+                const isActive = car.carId === activeCarCode;
+                return `
+                    <div class="flex items-center justify-between gap-2 p-2.5 rounded-xl ${isActive ? 'bg-amber-400/10 border border-amber-400/40' : 'bg-black/60 border border-zinc-800'}">
+                        <button onclick="selectVehicle('${car.carId}')" class="flex-1 text-left min-w-0">
+                            <div class="text-[11px] font-extrabold text-white truncate">${escapeHtml(car.vehicleName)}</div>
+                            <div class="text-[9px] font-mono-tech text-zinc-500 truncate">${escapeHtml(car.pairingCode || car.carId)}</div>
+                        </button>
+                        <button onclick="deleteVehicle('${car.carId}')" class="px-2.5 py-1.5 rounded-lg bg-red-900/40 border border-red-900/60 text-red-300 text-[10px] font-extrabold">HAPUS</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function saveGmailAndSync() {
+            const val = document.getElementById('modal-gmail-input').value.trim().toLowerCase();
             userGmail = val;
             localStorage.setItem('gc_hp_gmail', userGmail);
             renderHeaderAndSelector();
             closeAccountModal();
-            pullCloudData(true);
-            showToast('Akun Gmail disimpan & terhubung!');
+            showToast(val ? 'Label akun disimpan' : 'Label akun dikosongkan');
         }
-        function addVehicleByCode() {
-            const nameVal = document.getElementById('modal-car-name').value.trim() || 'PANGLINK';
-            let codeVal = document.getElementById('modal-car-code').value.trim().toUpperCase();
-            if (!codeVal) {
-                showToast('Masukkan Kode Pairing dari Setelan Launcher (contoh: GC-4829)');
+
+        async function addVehicleByCode() {
+            if (!PDSync.isSupported()) {
+                showToast('Web Crypto tidak tersedia di WebView ini');
                 return;
             }
-            if (!codeVal.startsWith('GC-') && /^\d{4}$/.test(codeVal)) {
-                codeVal = 'GC-' + codeVal;
+            const nameVal = document.getElementById('modal-car-name').value.trim() || 'Mobil Baru';
+            const raw = PDSync.normalizeSecret(document.getElementById('modal-car-code').value || '');
+            if (!PDSync.isValidSecret(raw)) {
+                showToast('Kode pairing harus 12 karakter (contoh: PD-XXXX-XXXX-XXXX)');
+                return;
             }
-            if (vehiclesMap['MOBIL-A'] && !vehiclesMap['MOBIL-A'].updatedAt) {
-                delete vehiclesMap['MOBIL-A'];
+            try {
+                const session = await PDSync.createSession(raw);
+                const carId = session.carId;
+                if (vehiclesMap[carId]) {
+                    vehiclesMap[carId].vehicleName = nameVal;
+                    vehiclesMap[carId].pairingSecret = raw;
+                    vehiclesMap[carId].pairingCode = PDSync.formatSecret(raw);
+                } else {
+                    vehiclesMap[carId] = createEmptyCarState(carId, nameVal, {
+                        carId: carId,
+                        pairingCode: PDSync.formatSecret(raw),
+                        pairingSecret: raw
+                    });
+                }
+                activeCarCode = carId;
+                syncSessions[carId] = session;
+                saveVehiclesToStorage();
+                syncServiceComponentsRef();
+                renderHeaderAndSelector();
+                renderActiveVehicleUI();
+                renderServiceDashboard();
+                document.getElementById('modal-car-name').value = '';
+                document.getElementById('modal-car-code').value = '';
+                closeAccountModal();
+                subscribeCarTopics(vehiclesMap[carId]);
+                await pullCloudData(true);
+                showToast('Kendaraan ' + nameVal + ' terhubung aman!');
+            } catch (e) {
+                showToast('Gagal pairing: ' + (e && e.message ? e.message : 'kode tidak valid'));
             }
-            if (!vehiclesMap[codeVal]) {
-                vehiclesMap[codeVal] = createEmptyCarState(codeVal, nameVal);
-            } else {
-                vehiclesMap[codeVal].vehicleName = nameVal;
-            }
-            activeCarCode = codeVal;
+        }
+
+        function deleteVehicle(carId) {
+            const car = vehiclesMap[carId];
+            if (!car) return;
+            if (!confirm('Hapus ' + (car.vehicleName || 'mobil ini') + ' dari HP?\n\nKunci pairing akan dihapus dan sinkronisasi berhenti. Data di headunit tidak terhapus.')) return;
+            closeCarEventSources(carId);
+            delete vehiclesMap[carId];
+            if (activeCarCode === carId) activeCarCode = Object.keys(vehiclesMap)[0] || '';
             saveVehiclesToStorage();
+            syncServiceComponentsRef();
             renderHeaderAndSelector();
             renderActiveVehicleUI();
-            closeAccountModal();
-            pullCloudData(true);
-            showToast('Kendaraan ' + nameVal + ' (' + codeVal + ') ditambahkan!');
+            renderPairedCarsList();
+            renderServiceDashboard();
+            showToast('Mobil dihapus dari PangLink');
+        }
+
+        function deleteActiveVehicle() {
+            if (!activeCarCode) {
+                showToast('Belum ada mobil aktif');
+                return;
+            }
+            deleteVehicle(activeCarCode);
+        }
+
+        function resetActiveVehicleData() {
+            const car = vehiclesMap[activeCarCode];
+            if (!car) {
+                showToast('Belum ada mobil aktif');
+                return;
+            }
+            if (!confirm('Reset seluruh statistik, riwayat trip, dan data servis ' + (car.vehicleName || 'mobil ini') + ' di HP?\n\nData di headunit tidak terhapus dan bisa tersinkron kembali.')) return;
+            const reset = createEmptyCarState(car.carId, car.vehicleName, {
+                carId: car.carId,
+                pairingCode: car.pairingCode,
+                pairingSecret: car.pairingSecret
+            });
+            reset.monthKey = car.monthKey || '';
+            vehiclesMap[car.carId] = reset;
+            saveVehiclesToStorage();
+            syncServiceComponentsRef();
+            renderHeaderAndSelector();
+            renderActiveVehicleUI();
+            renderPairedCarsList();
+            renderServiceDashboard();
+            showToast('Data mobil aktif berhasil direset');
         }
 
         function openLastParkingInMaps() {
@@ -1459,7 +1792,7 @@
         // Perlu Perhatian (2)
         {
             id: 'filter_oli', name: 'Filter Oli Mesin', iconKey: 'filter_oli',
-            hasKm: true, recKm: 20000, intervalKm: 20000, remKm: 15635,
+            hasKm: true, recKm: 10000, intervalKm: 10000, remKm: 15635,
             recMonths: 6, intervalMonths: 6, remDays: 34,
             advice: 'Ganti filter oli bersamaan dengan penggantian oli mesin agar sirkulasi pelumasan tetap bersih dari endapan logam.',
             lastService: 'Tidak tersedia', note: '', history: []
@@ -1580,25 +1913,61 @@
         }
     ];
 
-    let serviceComponents = JSON.parse(localStorage.getItem('gc_service_components_v11') || 'null');
-    if (!Array.isArray(serviceComponents) || serviceComponents.length === 0) {
-        serviceComponents = JSON.parse(JSON.stringify(DEFAULT_SERVICE_COMPONENTS));
-        localStorage.setItem('gc_service_components_v11', JSON.stringify(serviceComponents));
-    }
-
     let selectedServiceCompId = null;
     let editTempIntervalKm = 50000;
     let editTempRemKm = 45600;
     let editTempIntervalMonths = 24;
     let editTempRemDays = 224;
 
+    function localDateIso(date) {
+        const d = date || new Date();
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
+    function daysAgoIso(days) {
+        const d = new Date();
+        d.setDate(d.getDate() - Math.max(0, Math.round(days || 0)));
+        return localDateIso(d);
+    }
+
+    function daysBetweenIso(fromIso, toDate) {
+        if (!fromIso) return 0;
+        const from = new Date(fromIso + 'T00:00:00');
+        const to = toDate || new Date();
+        const toMid = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+        if (isNaN(from.getTime())) return 0;
+        return Math.max(0, Math.round((toMid.getTime() - from.getTime()) / 86400000));
+    }
+
+    function parseIndoDateToIso(text) {
+        if (!text) return '';
+        const m = String(text).match(/(\d{1,2})\s+(Jan|Feb|Mar|Apr|Mei|Jun|Jul|Agu|Sep|Okt|Nov|Des)\s+(\d{4})/i);
+        if (!m) return '';
+        const months = { jan: 1, feb: 2, mar: 3, apr: 4, mei: 5, jun: 6, jul: 7, agu: 8, sep: 9, okt: 10, nov: 11, des: 12 };
+        const mm = months[m[2].toLowerCase()];
+        if (!mm) return '';
+        return m[3] + '-' + String(mm).padStart(2, '0') + '-' + String(m[1]).padStart(2, '0');
+    }
+
+    function remainingDaysForComp(comp) {
+        const totalDays = Math.max(1, Math.round((comp.intervalMonths || comp.recMonths || 12) * 30.4375));
+        if (comp.lastServiceDateIso) {
+            const elapsed = daysBetweenIso(comp.lastServiceDateIso, new Date());
+            return Math.max(0, totalDays - elapsed);
+        }
+        return Math.max(0, Math.round(comp.remDays ?? totalDays));
+    }
+
     function saveServiceComponentsToStorage() {
-        localStorage.setItem('gc_service_components_v11', JSON.stringify(serviceComponents));
+        const car = vehiclesMap[activeCarCode];
+        if (!car) return;
+        car.serviceComponents = serviceComponents;
+        saveVehiclesToStorage();
     }
 
     function getCompMetrics(comp) {
         const totalDays = Math.max(1, Math.round((comp.intervalMonths || 12) * 30.4375));
-        const rDays = Math.max(0, Math.round(comp.remDays ?? totalDays));
+        const rDays = remainingDaysForComp(comp);
         const timePct = Math.min(100, Math.max(0, Math.round((rDays / totalDays) * 100)));
 
         let kmPct = 100;
@@ -1781,14 +2150,14 @@
 
         const groups = [
             {
-                title: 'Perlu perhatian',
+                title: 'Periksa Segera',
                 badgeBg: 'rgba(239,68,68,0.22)',
                 badgeColor: '#f87171',
                 iconHtml: `<span style="width:22px;height:22px;border-radius:999px;background:#ef4444;color:#000;font-weight:900;font-size:13px;display:inline-flex;align-items:center;justify-content:center;">!</span>`,
                 items: urgentList
             },
             {
-                title: 'Periksa Segera',
+                title: 'Perlu Perhatian',
                 badgeBg: 'rgba(234,179,8,0.22)',
                 badgeColor: '#facc15',
                 iconHtml: `<span style="width:22px;height:22px;border-radius:6px;background:#eab308;color:#000;font-weight:900;font-size:13px;display:inline-flex;align-items:center;justify-content:center;">&#9888;</span>`,
@@ -2063,20 +2432,27 @@
         comp.intervalMonths = Math.max(1, parseInt(editTempIntervalMonths || comp.intervalMonths));
         const maxDays = Math.round(comp.intervalMonths * 30.4375);
         comp.remDays = Math.min(maxDays, Math.max(0, parseInt(editTempRemDays || 0)));
+        comp.lastServiceDateIso = comp.remDays >= maxDays
+            ? localDateIso(new Date())
+            : daysAgoIso(maxDays - comp.remDays);
+        comp.updatedAt = Date.now();
 
         saveServiceComponentsToStorage();
         document.getElementById('srv-card-edit-mode').classList.add('hidden');
         document.getElementById('srv-card-view-mode').classList.remove('hidden');
         refreshServiceDetailUI();
-        if (typeof queueAutoSyncPayload === 'function') queueAutoSyncPayload(true);
+        renderServiceDashboard();
+        publishServiceFromPhone();
         showToast('✅ Interval & sisa umur ' + comp.name + ' berhasil disimpan');
     }
 
     function saveCurrentServiceNote(val) {
         const comp = serviceComponents.find(c => c.id === selectedServiceCompId);
         if (!comp) return;
-        comp.note = val;
+        comp.note = String(val || '').slice(0, 160);
+        comp.updatedAt = Date.now();
         saveServiceComponentsToStorage();
+        publishServiceFromPhone();
     }
 
     function markComponentServicedNow() {
@@ -2086,24 +2462,29 @@
         const now = new Date();
         const monthsId = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
         const dateFormatted = `${now.getDate()} ${monthsId[now.getMonth()]} ${now.getFullYear()}`;
-        const curOdo = parseInt(localStorage.getItem('gc_odo_km_v6') || '0');
+        const car = vehiclesMap[activeCarCode];
+        const curOdo = parseInt(car && car.odometerKm ? car.odometerKm : 0);
 
         if (comp.hasKm) {
             comp.remKm = comp.intervalKm;
         }
         comp.remDays = Math.round((comp.intervalMonths || 12) * 30.4375);
         comp.lastService = `${dateFormatted} (${formatDotNumber(curOdo)} km)`;
+        comp.lastServiceDateIso = localDateIso(now);
+        comp.updatedAt = now.getTime();
 
         if (!Array.isArray(comp.history)) comp.history = [];
         comp.history.unshift({
             date: dateFormatted,
+            dateIso: localDateIso(now),
             odometerKm: curOdo,
             note: comp.note || 'Servis berkala / penggantian komponen selesai (Reset 100%)'
         });
 
         saveServiceComponentsToStorage();
         refreshServiceDetailUI();
-        if (typeof queueAutoSyncPayload === 'function') queueAutoSyncPayload(true);
+        renderServiceDashboard();
+        publishServiceFromPhone();
         showToast('🔧 ' + comp.name + ' telah diservis (Umur direset ke 100%)');
     }
 
@@ -2165,25 +2546,31 @@
             remDays: Math.round(moVal * 30.4375),
             advice: 'Periksa kondisi ' + name + ' di setiap servis berkala dan ganti sesuai interval.',
             lastService: 'Tidak tersedia',
+            lastServiceDateIso: '',
             note: '',
-            history: []
+            history: [],
+            updatedAt: Date.now()
         };
         serviceComponents.push(newComp);
         saveServiceComponentsToStorage();
         closeAddServiceCompModal();
         renderServiceDashboard();
-        if (typeof queueAutoSyncPayload === 'function') queueAutoSyncPayload(true);
+        publishServiceFromPhone();
         showToast('✅ Komponen ' + name + ' ditambahkan');
     }
 
         window.addEventListener('DOMContentLoaded', () => {
-            renderServiceDashboard();
             ensureDefaultCarSlot();
             renderRekapMonthPills();
             initParkingMap();
             renderHeaderAndSelector();
             renderActiveVehicleUI();
-            pullCloudData(false);
+            renderServiceDashboard();
+            if (!PDSync.isSupported()) {
+                document.getElementById('net-text').innerText = 'Sync aman tidak didukung WebView ini';
+                return;
+            }
+            setTimeout(() => { pullCloudData(false); }, 300);
         });
     </script>
 </body>

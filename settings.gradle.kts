@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "GreycoatCompanionHP"
+rootProject.name = "PangLink"
 include(":app")

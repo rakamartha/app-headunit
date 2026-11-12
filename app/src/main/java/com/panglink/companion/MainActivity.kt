@@ -1,4 +1,4 @@
-package com.greycoat.companion
+package com.panglink.companion
 
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -70,7 +70,7 @@ class MainActivity : Activity() {
             settings.allowUniversalAccessFromFileURLs = false
             settings.useWideViewPort = true
             settings.loadWithOverviewMode = true
-            settings.userAgentString = "Mozilla/5.0 (Linux; Android 13; GreycoatCompanion) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36" 
+            settings.userAgentString = "Mozilla/5.0 (Linux; Android 13; PangLinkCompanion) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36" 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             }

@@ -28,11 +28,11 @@ val releaseKeystorePath = signingValue("KEYSTORE_PATH")
 val hasReleaseKeystore = !releaseKeystorePath.isNullOrBlank() && file(releaseKeystorePath).exists()
 
 android {
-    namespace = "com.greycoat.companion"
+    namespace = "com.panglink.companion"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.greycoat.companion"
+        applicationId = "com.panglink.companion"
         minSdk = 24
         targetSdk = 34
         versionCode = (findProperty("versionCodeOverride") as String?)?.toIntOrNull() ?: 5

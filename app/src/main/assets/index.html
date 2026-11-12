@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GREYCOAT - Companion App</title>
+    <title>PANGLINK - Companion App</title>
     <!-- Aset lokal: UI tetap tampil walau HP offline -->
     <script src="vendor/tailwind.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700;800&family=Space+Grotesk:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -140,7 +140,7 @@
                 <button onclick="closeAllTripsModal()" class="text-[11px] font-mono-tech font-bold text-zinc-400 hover:text-white flex items-center gap-1.5 mb-2">
                     <span>←</span> <span>KEMBALI KE STATISTIK</span>
                 </button>
-                <div id="all-trips-car-subtitle" class="text-[10px] font-mono-tech text-zinc-500 tracking-widest uppercase">GREYCOAT</div>
+                <div id="all-trips-car-subtitle" class="text-[10px] font-mono-tech text-zinc-500 tracking-widest uppercase">PANGLINK</div>
                 <div class="text-3xl font-black tracking-tight text-amber-400 uppercase mt-0.5">PERJALANAN</div>
             </div>
             <button onclick="toggleDateFilterPanel()" id="btn-tanggal-filter" class="px-4 py-2 bg-[#141414] border border-zinc-700 rounded text-xs font-mono-tech font-bold tracking-widest text-zinc-200 uppercase">
@@ -197,7 +197,7 @@
 
         <!-- ======================= TAB 1: GARASI & REKAP BULANAN + PETA LOKASI PARKIR ======================= -->
         <div id="view-garasi" class="px-5 pt-4 pb-4">
-            <div id="active-car-label-1" class="text-[10px] text-zinc-500 tracking-widest font-extrabold uppercase mb-0.5">GREYCOAT</div>
+            <div id="active-car-label-1" class="text-[10px] text-zinc-500 tracking-widest font-extrabold uppercase mb-0.5">PANGLINK</div>
             <div class="text-3xl font-black tracking-wide text-amber-400 mb-4">REKAP BULANAN</div>
 
             <!-- Filter Bulan Horizontal Dinamis -->
@@ -279,7 +279,7 @@
         <div id="view-statistik" class="px-5 pt-4 pb-6 hidden-tab">
             <div class="flex justify-between items-end mb-4">
                 <div>
-                    <div id="active-car-label-2" class="text-[10px] text-zinc-500 tracking-widest font-extrabold uppercase mb-0.5">GREYCOAT</div>
+                    <div id="active-car-label-2" class="text-[10px] text-zinc-500 tracking-widest font-extrabold uppercase mb-0.5">PANGLINK</div>
                     <div class="text-3xl font-black tracking-wide text-amber-400">STATISTIK</div>
                 </div>
                 <!-- Toggle MINGGUAN / BULANAN yang Berfungsi Penuh -->
@@ -383,7 +383,7 @@
             <div id="srv-dashboard-view">
                 <div class="flex justify-between items-end mb-4">
                     <div>
-                        <div id="active-car-label-3" class="text-[10px] text-zinc-500 tracking-widest font-extrabold uppercase mb-0.5">GREYCOAT</div>
+                        <div id="active-car-label-3" class="text-[10px] text-zinc-500 tracking-widest font-extrabold uppercase mb-0.5">PANGLINK</div>
                         <div class="text-3xl font-black tracking-wide text-amber-400">SERVIS</div>
                     </div>
                     <div class="text-right">
@@ -980,7 +980,7 @@
         // =========================================================================
         function openAllTripsModal() {
             const car = vehiclesMap[activeCarCode];
-            document.getElementById('all-trips-car-subtitle').innerText = car ? `${car.vehicleName} (${car.pairingCode})` : 'GREYCOAT';
+            document.getElementById('all-trips-car-subtitle').innerText = car ? `${car.vehicleName} (${car.pairingCode})` : 'PANGLINK';
             document.getElementById('all-trips-overlay').classList.remove('hidden-tab');
             applyTripsFilter();
         }
@@ -1131,7 +1131,7 @@
             const car = vehiclesMap[activeCarCode];
             if (!car) return;
 
-            const titleLabel = (car.vehicleName || 'GREYCOAT').toUpperCase() + ' • ' + car.pairingCode;
+            const titleLabel = (car.vehicleName || 'PANGLINK').toUpperCase() + ' • ' + car.pairingCode;
             document.getElementById('active-car-label-1').innerText = titleLabel;
             document.getElementById('active-car-label-2').innerText = titleLabel;
             document.getElementById('active-car-label-3').innerText = titleLabel;
@@ -1200,12 +1200,12 @@
         function getGmailChannelTopic(email) {
             if (!email || !email.includes('@')) return '';
             const clean = email.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-            return 'greycoat_gmail_' + clean;
+            return 'panglink_gmail_' + clean;
         }
 
         function getCarChannelTopic(code) {
             const clean = (code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-            return 'greycoat_car_' + clean;
+            return 'panglink_car_' + clean;
         }
 
         function mergeTripLogs(existingLogs, incomingLogs, singleCompletedTrip) {
@@ -1358,7 +1358,7 @@
             showToast('Akun Gmail disimpan & terhubung!');
         }
         function addVehicleByCode() {
-            const nameVal = document.getElementById('modal-car-name').value.trim() || 'GREYCOAT';
+            const nameVal = document.getElementById('modal-car-name').value.trim() || 'PANGLINK';
             let codeVal = document.getElementById('modal-car-code').value.trim().toUpperCase();
             if (!codeVal) {
                 showToast('Masukkan Kode Pairing dari Setelan Launcher (contoh: GC-4829)');
@@ -1424,7 +1424,7 @@
 
         function shareRekap() {
             const car = vehiclesMap[activeCarCode];
-            showToast('Menyiapkan kartu rekap ' + (car ? car.vehicleName : 'GREYCOAT') + '...');
+            showToast('Menyiapkan kartu rekap ' + (car ? car.vehicleName : 'PANGLINK') + '...');
         }
 
         function exportData(format) {

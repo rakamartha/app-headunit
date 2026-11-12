@@ -1,4 +1,4 @@
-name: Build Companion HP APK
+name: Build PangLink APK
 
 on:
   push:
@@ -41,6 +41,20 @@ jobs:
             echo "signed=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Validasi keystore & password
+        if: steps.keystore.outputs.signed == 'true'
+        run: |
+          set -euo pipefail
+          echo "Keystore hasil decode: $(wc -c < "$KEYSTORE_PATH") byte"
+          echo "SHA-256 file keystore: $(sha256sum "$KEYSTORE_PATH" | cut -d' ' -f1)"
+          if ! OUT=$(keytool -list -keystore "$KEYSTORE_PATH" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" 2>&1); then
+            echo "$OUT"
+            echo "::error::Keystore tidak bisa dibuka. Periksa KEYSTORE_BASE64, KEYSTORE_PASSWORD, dan KEY_ALIAS (tanpa spasi/enter di akhir)."
+            exit 1
+          fi
+          echo "$OUT"
+          echo "Keystore valid: alias '$KEY_ALIAS' ditemukan."
+
       - name: Build APK
         run: |
           set -euo pipefail
@@ -53,11 +67,11 @@ jobs:
             APK="app/build/outputs/apk/debug/app-debug.apk"
           fi
           mkdir -p dist_apk
-          cp "$APK" dist_apk/Greycoat-Companion-App.apk
-          ls -lh dist_apk/Greycoat-Companion-App.apk
+          cp "$APK" dist_apk/PangLink-Companion-App.apk
+          ls -lh dist_apk/PangLink-Companion-App.apk
 
       - name: Upload Compiled APK
         uses: actions/upload-artifact@v4
         with:
-          name: Greycoat-Companion-App-APK
-          path: dist_apk/Greycoat-Companion-App.apk
+          name: PangLink-Companion-App-APK
+          path: dist_apk/PangLink-Companion-App.apk

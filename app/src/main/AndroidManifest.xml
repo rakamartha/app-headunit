@@ -9,13 +9,13 @@
 
     <application
         android:allowBackup="true"
-        android:label="Greycoat Companion"
+        android:label="PangLink"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@android:style/Theme.NoTitleBar">
 
         <activity
-            android:name="com.greycoat.companion.MainActivity"
+            android:name="com.panglink.companion.MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
             android:screenOrientation="portrait"

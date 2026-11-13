@@ -55,7 +55,8 @@
         .parking-map-dark .leaflet-tile-pane {
             filter: invert(92%) hue-rotate(185deg) brightness(95%) contrast(92%);
         }
-        .leaflet-control-attribution { display: none !important; }
+        .leaflet-control-attribution { font-size: 9px !important; background: rgba(0,0,0,0.55) !important; color: #a1a1aa !important; }
+        .leaflet-control-attribution a { color: #d4d4d8 !important; }
 
         .hidden-tab { display: none !important; }
     </style>
@@ -737,15 +738,21 @@
             try {
                 if (typeof L === 'undefined' || parkingMap) return;
                 parkingMap = L.map('hp-parking-map', {
-                    zoomControl: false,
-                    attributionControl: false
+                    zoomControl: false
                 }).setView([DEFAULT_LAT, DEFAULT_LNG], 16);
 
                 const gLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=m&hl=id&x={x}&y={y}&z={z}', {
-                    maxZoom: 20
+                    maxZoom: 20,
+                    attribution: '&copy; Google'
                 });
+                let osmFallbackAdded = false;
                 gLayer.on('tileerror', function() {
-                    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(parkingMap);
+                    if (osmFallbackAdded) return;
+                    osmFallbackAdded = true;
+                    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        maxZoom: 19,
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    }).addTo(parkingMap);
                 });
                 gLayer.addTo(parkingMap);
 

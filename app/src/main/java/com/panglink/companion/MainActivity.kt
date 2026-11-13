@@ -147,6 +147,24 @@ class MainActivity : Activity() {
 
     inner class CompanionBridge(private val context: Context) {
         @JavascriptInterface
+        fun getSyncConfigJson(): String {
+            return try {
+                val key = BuildConfig.ABLY_API_KEY
+                val configured = BuildConfig.SYNC_PROVIDER.ifBlank { "ntfy" }.lowercase()
+                val provider = if (configured == "ably" && key.isBlank()) "ntfy" else configured
+                val ably = org.json.JSONObject()
+                ably.put("key", key)
+                ably.put("namespace", "pangdash")
+                val root = org.json.JSONObject()
+                root.put("provider", provider)
+                root.put("ably", ably)
+                root.toString()
+            } catch (_: Throwable) {
+                "{\"provider\":\"ntfy\"}"
+            }
+        }
+
+        @JavascriptInterface
         fun showToast(msg: String) {
             runOnUiThread { Toast.makeText(context, msg, Toast.LENGTH_SHORT).show() }
         }

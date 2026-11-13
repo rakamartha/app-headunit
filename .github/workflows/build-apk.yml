@@ -4,6 +4,27 @@ on:
   push:
     branches: [ "main", "master" ]
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: 'Publikasikan rilis OTA PangLink setelah build'
+        type: boolean
+        default: false
+      version_code:
+        description: 'versionCode rilis (wajib jika publish_release; mis. 8)'
+        type: string
+        required: false
+      version_name:
+        description: 'versionName rilis (default 1.1)'
+        type: string
+        required: false
+        default: '1.1'
+      release_notes:
+        description: 'Catatan rilis (kosongkan untuk catatan otomatis)'
+        type: string
+        required: false
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -29,6 +50,22 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
+
+      - name: Validasi input rilis
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_release
+        env:
+          VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_NAME: ${{ inputs.version_name }}
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "${VERSION_CODE:-}" | grep -Eq '^[0-9]+$'; then
+            echo "::error::version_code wajib diisi angka saat publish_release=true (mis. 8)."
+            exit 1
+          fi
+          if ! printf '%s' "${VERSION_NAME:-}" | grep -Eq '^[0-9]+(\.[0-9]+){1,3}$'; then
+            echo "::error::version_name harus format angka, mis. 1.2."
+            exit 1
+          fi
 
       - name: Siapkan release keystore
         id: keystore
@@ -58,23 +95,84 @@ jobs:
           echo "$OUT"
           echo "Keystore valid: alias '$KEY_ALIAS' ditemukan."
 
-      - name: Build APK
+      - name: Inject repo OTA otomatis
         run: |
           set -euo pipefail
+          if [ -f "app/src/main/assets/index.html" ]; then
+            sed -i "s|__AUTO_GITHUB_REPO__|${GITHUB_REPOSITORY}|g" app/src/main/assets/index.html
+          fi
+
+      - name: Build APK
+        env:
+          VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_NAME: ${{ inputs.version_name }}
+        run: |
+          set -euo pipefail
+          GRADLE_ARGS=""
+          if [ -n "${VERSION_CODE:-}" ]; then
+            if ! printf '%s' "$VERSION_CODE" | grep -Eq '^[0-9]+$'; then
+              echo "::error::version_code harus berupa angka."
+              exit 1
+            fi
+            GRADLE_ARGS="$GRADLE_ARGS -PversionCodeOverride=$VERSION_CODE"
+          fi
+          if [ -n "${VERSION_NAME:-}" ]; then
+            if ! printf '%s' "$VERSION_NAME" | grep -Eq '^[0-9]+(\.[0-9]+){1,3}$'; then
+              echo "::error::version_name harus format angka, mis. 1.2."
+              exit 1
+            fi
+            GRADLE_ARGS="$GRADLE_ARGS -PversionNameOverride=$VERSION_NAME"
+          fi
           chmod +x gradlew
           if [ "${{ steps.keystore.outputs.signed }}" = "true" ]; then
-            ./gradlew assembleRelease --stacktrace
+            # shellcheck disable=SC2086
+            ./gradlew assembleRelease $GRADLE_ARGS --stacktrace
             APK="app/build/outputs/apk/release/app-release.apk"
           else
-            ./gradlew assembleDebug --stacktrace
+            # shellcheck disable=SC2086
+            ./gradlew assembleDebug $GRADLE_ARGS --stacktrace
             APK="app/build/outputs/apk/debug/app-debug.apk"
           fi
           mkdir -p dist_apk
           cp "$APK" dist_apk/PangLink-Companion-App.apk
+          sha256sum dist_apk/PangLink-Companion-App.apk > dist_apk/PangLink-Companion-App.apk.sha256
           ls -lh dist_apk/PangLink-Companion-App.apk
+          cat dist_apk/PangLink-Companion-App.apk.sha256
 
       - name: Upload Compiled APK
         uses: actions/upload-artifact@v4
         with:
           name: PangLink-Companion-App-APK
-          path: dist_apk/PangLink-Companion-App.apk
+          path: |
+            dist_apk/PangLink-Companion-App.apk
+            dist_apk/PangLink-Companion-App.apk.sha256
+
+      - name: Publish GitHub Release (OTA PangLink)
+        if: steps.keystore.outputs.signed == 'true' && github.event_name == 'workflow_dispatch' && inputs.publish_release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_NAME: ${{ inputs.version_name }}
+          RELEASE_NOTES: ${{ inputs.release_notes }}
+        run: |
+          set -euo pipefail
+          TAG="v${VERSION_NAME}-b${VERSION_CODE}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::Tag $TAG sudah ada. Naikkan version_code/version_name."
+            exit 1
+          fi
+          if [ -n "${RELEASE_NOTES:-}" ]; then
+            gh release create "$TAG" \
+              dist_apk/PangLink-Companion-App.apk \
+              dist_apk/PangLink-Companion-App.apk.sha256 \
+              --title "PangLink v${VERSION_NAME}" \
+              --notes "$RELEASE_NOTES" \
+              --latest
+          else
+            gh release create "$TAG" \
+              dist_apk/PangLink-Companion-App.apk \
+              dist_apk/PangLink-Companion-App.apk.sha256 \
+              --title "PangLink v${VERSION_NAME}" \
+              --generate-notes \
+              --latest
+          fi

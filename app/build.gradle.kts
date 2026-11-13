@@ -52,7 +52,7 @@ android {
         minSdk = 24
         targetSdk = 34
         versionCode = (findProperty("versionCodeOverride") as String?)?.toIntOrNull() ?: 7
-        versionName = "1.1"
+        versionName = (findProperty("versionNameOverride") as String?)?.takeIf { it.isNotBlank() } ?: "1.1"
         buildConfigField("String", "SYNC_PROVIDER", buildConfigString(syncProvider))
         buildConfigField("String", "ABLY_API_KEY", buildConfigString(ablyApiKey))
     }

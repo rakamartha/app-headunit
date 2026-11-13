@@ -59,6 +59,14 @@
         .leaflet-control-attribution a { color: #d4d4d8 !important; }
 
         .hidden-tab { display: none !important; }
+
+        @keyframes spinOta {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .spin-ota {
+            animation: spinOta 0.9s linear infinite;
+        }
     </style>
 
 <!-- ======================= CSS KHUSUS MODUL SERVIS 17 KOMPONEN ======================= -->
@@ -211,6 +219,18 @@
 
         <!-- Bar Pilihan Kendaraan -->
         <div id="vehicle-selector-bar" class="flex gap-2 overflow-x-auto pb-1 scrollbar-none text-xs font-extrabold"></div>
+    </div>
+
+    <!-- BAR PEMBARUAN APLIKASI (OTA PANGLINK) -->
+    <div id="panglink-update-bar" class="px-5 py-2 bg-[#101010] border-b border-zinc-900 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5 min-w-0">
+            <span id="update-bar-dot" class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+            <div class="min-w-0">
+                <div id="update-bar-title" class="text-[11px] font-extrabold text-zinc-200 truncate">PangLink v1.1</div>
+                <div id="update-bar-sub" class="text-[9px] text-zinc-500 font-bold truncate">Pembaruan aplikasi otomatis</div>
+            </div>
+        </div>
+        <button id="update-bar-btn" onclick="handleUpdateBarAction()" class="shrink-0 px-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700 text-[10px] font-extrabold text-amber-400">PERIKSA</button>
     </div>
 
     <!-- KONTEN UTAMA -->
@@ -617,6 +637,81 @@
                 <svg class="w-6 h-6 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
                 <span class="text-[10px] font-extrabold tracking-wider text-zinc-500">PAIRING</span>
             </button>
+        </div>
+    </div>
+
+    <!-- ======================= MODAL PEMBARUAN APLIKASI PANGLINK ======================= -->
+    <div id="ota-update-modal" class="hidden-tab fixed inset-0 z-[60] bg-black/85 backdrop-blur-md flex items-center justify-center p-5">
+        <div class="card-dark w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl p-6 border border-zinc-700 shadow-2xl space-y-4">
+
+            <!-- STATE 1: MEMERIKSA -->
+            <div id="ota-state-checking" class="flex flex-col items-center text-center gap-4 py-5">
+                <div class="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-700 flex items-center justify-center shadow-lg">
+                    <svg class="spin-ota" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#facc15" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                </div>
+                <div>
+                    <div class="text-[10px] font-extrabold text-amber-400 tracking-widest">MENGHUBUNGI SERVER RILIS</div>
+                    <h3 class="text-xl font-black text-white mt-1.5">Memeriksa Pembaruan PangLink...</h3>
+                    <p class="text-xs text-zinc-400 mt-1">Mohon tunggu, sedang mengecek APK terbaru.</p>
+                </div>
+            </div>
+
+            <!-- STATE 2: SUDAH TERBARU -->
+            <div id="ota-state-latest" class="hidden-tab flex flex-col items-center text-center gap-4 py-3">
+                <div class="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500 flex items-center justify-center shadow-lg">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div>
+                    <div id="ota-latest-eyebrow" class="text-[10px] font-extrabold text-emerald-300 tracking-widest">SISTEM MUTAKHIR</div>
+                    <h3 id="ota-latest-title" class="text-xl font-black text-white mt-1.5">Sudah Versi Terbaru</h3>
+                    <p id="ota-latest-desc" class="text-xs text-zinc-400 mt-1 leading-relaxed">PangLink yang terinstal di HP Anda saat ini sudah merupakan versi paling baru.</p>
+                </div>
+                <button onclick="closeOtaModal()" class="w-full py-3 rounded-2xl bg-zinc-800 border border-zinc-700 text-white text-xs font-extrabold">Tutup</button>
+            </div>
+
+            <!-- STATE 3: PEMBARUAN TERSEDIA -->
+            <div id="ota-state-available" class="hidden-tab flex flex-col gap-4">
+                <div class="flex justify-between items-center border-b border-zinc-800 pb-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-2xl bg-amber-400/15 border border-amber-400/60 flex items-center justify-center shrink-0">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#facc15" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        </div>
+                        <div>
+                            <div class="text-[9px] font-extrabold text-amber-400 tracking-widest">PEMBARUAN TERSEDIA</div>
+                            <h3 class="text-xl font-black text-white mt-0.5">PangLink <span id="update-version-text" class="text-amber-400">v1.2</span></h3>
+                        </div>
+                    </div>
+                    <button onclick="closeOtaModal()" class="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 font-bold text-xs">✕</button>
+                </div>
+                <div class="space-y-1.5">
+                    <div class="text-[10px] font-extrabold text-zinc-400 tracking-wider">RINCIAN PEMBARUAN:</div>
+                    <div id="update-changelog-text" class="text-xs text-zinc-200 leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap bg-black/40 p-3 rounded-2xl border border-zinc-800"></div>
+                </div>
+                <div class="text-[10px] text-zinc-500 leading-relaxed">
+                    APK ditandatangani dengan kunci rilis PangLink yang sama. Pemasangan akan meminta izin “Instal aplikasi tidak dikenal” satu kali.
+                </div>
+                <div class="flex gap-3 pt-1">
+                    <button onclick="closeOtaModal()" class="flex-1 py-3 rounded-2xl bg-zinc-800 border border-zinc-700 text-zinc-400 text-xs font-extrabold">Nanti Saja</button>
+                    <button onclick="startOtaDownload()" class="flex-[1.5] py-3 rounded-2xl bg-amber-400 text-black text-xs font-black shadow-[0_6px_18px_rgba(250,204,21,0.35)]">UNDUH &amp; INSTAL</button>
+                </div>
+            </div>
+
+            <!-- STATE 4: PROGRES UNDUHAN -->
+            <div id="ota-state-downloading" class="hidden-tab flex flex-col items-center text-center gap-4 py-4">
+                <div class="w-16 h-16 rounded-2xl bg-zinc-900 border border-amber-400/60 flex items-center justify-center shadow-lg">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#facc15" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </div>
+                <div class="w-full">
+                    <div class="text-[10px] font-extrabold text-amber-400 tracking-widest">MENGUNDUH PEMBARUAN OTA</div>
+                    <h3 id="ota-download-title" class="text-lg font-black text-white mt-1.5 mb-2.5">Mengunduh PangLink APK...</h3>
+                    <div class="w-full h-2.5 bg-black border border-zinc-800 rounded-full overflow-hidden mb-2">
+                        <div id="ota-download-bar" class="w-[8%] h-full bg-amber-400 rounded-full transition-all duration-300"></div>
+                    </div>
+                    <div id="ota-download-status-text" class="text-[11px] font-bold text-zinc-400">Menyiapkan unduhan...</div>
+                </div>
+                <button onclick="closeOtaModal()" class="w-full py-2.5 rounded-2xl bg-zinc-800 border border-zinc-700 text-zinc-400 text-[11px] font-extrabold">Sembunyikan ke Latar Belakang</button>
+            </div>
+
         </div>
     </div>
 
@@ -2566,8 +2661,375 @@
         showToast('✅ Komponen ' + name + ' ditambahkan');
     }
 
+        // =========================================================================
+        // 9. PEMBARUAN APLIKASI PANGLINK (OTA)
+        // Sumber: GitHub Release repo PangLink. Repo di-inject oleh CI agar APK
+        // hanya mengambil pembaruan dari repositori yang benar.
+        // =========================================================================
+        const BUILTIN_GITHUB_REPO = '__AUTO_GITHUB_REPO__';
+        const OTA_FALLBACK_REPO = 'rakamartha/app-headunit';
+        const OTA_ALLOWED_HOSTS = [
+            'github.com',
+            'objects.githubusercontent.com',
+            'release-assets.githubusercontent.com',
+            'github-releases.githubusercontent.com'
+        ];
+        const OTA_AUTO_CHECK_KEY = 'gc_hp_last_ota_check_v1';
+        const OTA_CACHE_KEY = 'gc_hp_ota_release_v1';
+        let pendingOtaApkUrl = '';
+        let pendingOtaSha256 = '';
+        let pendingOtaInfo = null;
+        let otaCheckInFlight = false;
+        let otaBarState = 'IDLE';
+
+        function getOtaRepo() {
+            const injected = String(BUILTIN_GITHUB_REPO || '');
+            if (injected && !injected.includes('__AUTO_') && !injected.includes('${') && injected.includes('/')) {
+                return injected;
+            }
+            return OTA_FALLBACK_REPO;
+        }
+
+        function getCurrentAppVersion() {
+            let ver = '1.1';
+            if (window.AndroidBridge && window.AndroidBridge.getAppVersion) {
+                try { ver = window.AndroidBridge.getAppVersion() || '1.1'; } catch (_e) {}
+            }
+            return String(ver).replace(/^v/i, '');
+        }
+
+        function getCurrentAppVersionCode() {
+            let code = 7;
+            if (window.AndroidBridge && window.AndroidBridge.getAppVersionCode) {
+                try {
+                    const bridgeCode = parseInt(window.AndroidBridge.getAppVersionCode(), 10);
+                    if (bridgeCode > 0) code = bridgeCode;
+                } catch (_e) {}
+            }
+            return code;
+        }
+
+        function isValidApkDownloadUrl(url) {
+            if (!url || typeof url !== 'string') return false;
+            if (url.includes('${') || url.includes('__AUTO_')) return false;
+            try {
+                const parsed = new URL(url);
+                if (parsed.protocol !== 'https:') return false;
+                if (!OTA_ALLOWED_HOSTS.includes(parsed.hostname.toLowerCase())) return false;
+                return parsed.pathname.toLowerCase().endsWith('.apk');
+            } catch (_e) {
+                return false;
+            }
+        }
+
+        function normalizeSha256(value) {
+            const clean = String(value || '').trim().toLowerCase().replace(/^sha256:/, '');
+            return /^[a-f0-9]{64}$/.test(clean) ? clean : '';
+        }
+
+        function isNewerVersion(oldVer, newVer) {
+            const cleanOld = String(oldVer || '1.1').replace(/^v/i, '').split('-')[0];
+            const cleanNew = String(newVer || '1.1').replace(/^v/i, '').split('-')[0];
+            const oldParts = cleanOld.split('.').map(n => parseInt(n, 10) || 0);
+            const newParts = cleanNew.split('.').map(n => parseInt(n, 10) || 0);
+            for (let i = 0; i < Math.max(oldParts.length, newParts.length); i++) {
+                const o = oldParts[i] || 0;
+                const n = newParts[i] || 0;
+                if (n > o) return true;
+                if (n < o) return false;
+            }
+            return false;
+        }
+
+        function setUpdateBarState(state, info) {
+            otaBarState = state;
+            const dot = document.getElementById('update-bar-dot');
+            const title = document.getElementById('update-bar-title');
+            const sub = document.getElementById('update-bar-sub');
+            const btn = document.getElementById('update-bar-btn');
+            if (!dot || !title || !sub || !btn) return;
+
+            const current = getCurrentAppVersion();
+            dot.className = 'w-2 h-2 rounded-full shrink-0 ';
+            btn.className = 'shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-extrabold border ';
+
+            if (state === 'CHECKING') {
+                dot.className += 'bg-amber-400 animate-pulse';
+                title.innerText = 'Memeriksa pembaruan...';
+                sub.innerText = 'Menghubungi GitHub Releases';
+                btn.innerText = '...';
+                btn.className += 'bg-zinc-800 border-zinc-700 text-zinc-400';
+            } else if (state === 'UPDATE' && info) {
+                dot.className += 'bg-amber-400 animate-pulse';
+                title.innerText = 'Pembaruan v' + String(info.version).replace(/^v/i, '') + ' tersedia';
+                sub.innerText = 'Terpasang v' + current + ' • Ketuk untuk melihat rincian';
+                btn.innerText = 'UNDUH';
+                btn.className += 'bg-amber-400 border-amber-300 text-black shadow-lg';
+            } else if (state === 'DOWNLOADING') {
+                dot.className += 'bg-amber-400 animate-pulse';
+                title.innerText = 'Mengunduh pembaruan...';
+                sub.innerText = (info && info.message) ? info.message : 'Menyiapkan unduhan APK';
+                btn.innerText = 'LIHAT';
+                btn.className += 'bg-zinc-800 border-amber-400/50 text-amber-300';
+            } else if (state === 'ERROR') {
+                dot.className += 'bg-red-500';
+                title.innerText = 'Gagal memeriksa pembaruan';
+                sub.innerText = (info && info.message) ? info.message : 'Periksa koneksi lalu coba lagi';
+                btn.innerText = 'COBA LAGI';
+                btn.className += 'bg-zinc-800 border-red-500/40 text-red-300';
+            } else if (state === 'LATEST') {
+                dot.className += 'bg-emerald-400';
+                title.innerText = 'PangLink v' + current;
+                sub.innerText = (info && info.message) ? info.message : 'Sudah versi terbaru';
+                btn.innerText = 'PERIKSA';
+                btn.className += 'bg-zinc-800 border-zinc-700 text-amber-400';
+            } else {
+                dot.className += 'bg-emerald-400';
+                title.innerText = 'PangLink v' + current;
+                sub.innerText = 'Pembaruan aplikasi otomatis';
+                btn.innerText = 'PERIKSA';
+                btn.className += 'bg-zinc-800 border-zinc-700 text-amber-400';
+            }
+        }
+
+        function setOtaModalView(state) {
+            const modal = document.getElementById('ota-update-modal');
+            const stCheck = document.getElementById('ota-state-checking');
+            const stLatest = document.getElementById('ota-state-latest');
+            const stAvail = document.getElementById('ota-state-available');
+            const stDown = document.getElementById('ota-state-downloading');
+            if (!modal) return;
+            modal.classList.remove('hidden-tab');
+            if (stCheck) stCheck.classList.toggle('hidden-tab', state !== 'CHECKING');
+            if (stLatest) stLatest.classList.toggle('hidden-tab', state !== 'LATEST');
+            if (stAvail) stAvail.classList.toggle('hidden-tab', state !== 'AVAILABLE');
+            if (stDown) stDown.classList.toggle('hidden-tab', state !== 'DOWNLOADING');
+        }
+
+        function closeOtaModal() {
+            const modal = document.getElementById('ota-update-modal');
+            if (modal) modal.classList.add('hidden-tab');
+        }
+
+        function showOtaAvailable() {
+            if (!pendingOtaInfo) return;
+            const verStr = String(pendingOtaInfo.version).replace(/^v/i, '');
+            document.getElementById('update-version-text').innerText = 'v' + verStr;
+            document.getElementById('update-changelog-text').innerText = pendingOtaInfo.notes || 'Pembaruan stabilitas dan peningkatan fitur PangLink.';
+            setOtaModalView('AVAILABLE');
+        }
+
+        function handleUpdateBarAction() {
+            if (otaBarState === 'UPDATE') {
+                showOtaAvailable();
+            } else if (otaBarState === 'DOWNLOADING') {
+                setOtaModalView('DOWNLOADING');
+            } else {
+                checkForOtaUpdates(false);
+            }
+        }
+
+        async function fetchOtaChecksum(release) {
+            const apkAsset = release.assets.find(a => a.name && a.name.toLowerCase().endsWith('.apk'));
+            if (!apkAsset) return '';
+            const direct = normalizeSha256(apkAsset.digest || '');
+            if (direct) return direct;
+            const checksumAsset = release.assets.find(a => a.name && a.name.toLowerCase().endsWith('.sha256'));
+            if (!checksumAsset) return '';
+            try {
+                const res = await fetch(checksumAsset.browser_download_url, { cache: 'no-store' });
+                if (!res.ok) return '';
+                const text = await res.text();
+                const match = text.match(/[a-fA-F0-9]{64}/);
+                return match ? match[0].toLowerCase() : '';
+            } catch (_e) {
+                return '';
+            }
+        }
+
+        async function checkForOtaUpdates(silent) {
+            silent = silent === true;
+            if (otaCheckInFlight) return;
+            if (!navigator.onLine) {
+                setUpdateBarState('ERROR', { message: 'Tidak ada koneksi internet' });
+                if (!silent) showToast('Tidak ada koneksi internet untuk memeriksa pembaruan');
+                return;
+            }
+
+            const repo = getOtaRepo();
+            if (!repo || !repo.includes('/')) {
+                setUpdateBarState('ERROR', { message: 'Sumber pembaruan belum dikonfigurasi' });
+                if (!silent) showToast('Sumber pembaruan belum dikonfigurasi');
+                return;
+            }
+
+            otaCheckInFlight = true;
+            const currentVersion = getCurrentAppVersion();
+            const currentCode = getCurrentAppVersionCode();
+            const startWait = Date.now();
+            setUpdateBarState('CHECKING');
+            if (!silent) setOtaModalView('CHECKING');
+
+            let foundRelease = null;
+            let errorMessage = '';
+            try {
+                const res = await fetch('https://api.github.com/repos/' + repo + '/releases/latest', {
+                    cache: 'no-store',
+                    headers: { 'Accept': 'application/vnd.github+json' }
+                });
+                if (res.status === 404) {
+                    // Repo publik belum punya rilis. Bukan kegagalan aplikasi.
+                    foundRelease = null;
+                } else if (!res.ok) {
+                    errorMessage = 'GitHub mengembalikan HTTP ' + res.status;
+                } else {
+                    const data = await res.json();
+                    const apkAsset = data.assets && data.assets.find(a => a.name && a.name.toLowerCase().endsWith('.apk'));
+                    if (apkAsset && isValidApkDownloadUrl(apkAsset.browser_download_url)) {
+                        const rawTag = String(data.tag_name || 'v' + currentVersion);
+                        const verPart = rawTag.split('-b')[0].replace(/^v/i, '');
+                        const codePart = rawTag.includes('-b') ? parseInt(rawTag.split('-b')[1], 10) : 0;
+                        foundRelease = {
+                            version: verPart || currentVersion,
+                            versionCode: codePart || 0,
+                            apkUrl: apkAsset.browser_download_url,
+                            notes: data.body || 'Pembaruan resmi PangLink Companion App.',
+                            assets: data.assets || []
+                        };
+                        foundRelease.sha256 = await fetchOtaChecksum(data);
+                    } else {
+                        errorMessage = 'Rilis terbaru tidak memiliki APK yang valid';
+                    }
+                }
+            } catch (e) {
+                errorMessage = 'Tidak dapat menghubungi GitHub';
+            }
+
+            const elapsed = Date.now() - startWait;
+            if (!silent && elapsed < 800) {
+                await new Promise(r => setTimeout(r, 800 - elapsed));
+            }
+
+            otaCheckInFlight = false;
+            try { localStorage.setItem(OTA_AUTO_CHECK_KEY, String(Date.now())); } catch (_e) {}
+
+            if (errorMessage) {
+                setUpdateBarState('ERROR', { message: errorMessage });
+                if (!silent) {
+                    closeOtaModal();
+                    showToast(errorMessage);
+                }
+                return;
+            }
+
+            const hasUpdate = foundRelease && isValidApkDownloadUrl(foundRelease.apkUrl) && (
+                (foundRelease.versionCode > 0 && foundRelease.versionCode > currentCode) ||
+                (foundRelease.versionCode === 0 && isNewerVersion(currentVersion, foundRelease.version))
+            );
+
+            if (hasUpdate) {
+                pendingOtaInfo = foundRelease;
+                pendingOtaApkUrl = foundRelease.apkUrl;
+                pendingOtaSha256 = normalizeSha256(foundRelease.sha256 || '');
+                try {
+                    localStorage.setItem(OTA_CACHE_KEY, JSON.stringify({
+                        version: foundRelease.version,
+                        versionCode: foundRelease.versionCode,
+                        apkUrl: foundRelease.apkUrl,
+                        sha256: pendingOtaSha256,
+                        notes: foundRelease.notes
+                    }));
+                } catch (_e) {}
+                setUpdateBarState('UPDATE', foundRelease);
+                if (!silent) showOtaAvailable();
+            } else {
+                pendingOtaInfo = null;
+                pendingOtaApkUrl = '';
+                pendingOtaSha256 = '';
+                try { localStorage.removeItem(OTA_CACHE_KEY); } catch (_e) {}
+                const noRelease = !foundRelease;
+                const msg = noRelease ? 'Belum ada rilis pembaruan publik' : 'Sudah versi terbaru';
+                setUpdateBarState('LATEST', { message: msg });
+                if (!silent) {
+                    const latestTitle = document.getElementById('ota-latest-title');
+                    const latestEyebrow = document.getElementById('ota-latest-eyebrow');
+                    if (latestTitle) latestTitle.innerText = noRelease ? 'Belum Ada Rilis Publik' : 'Sudah Versi Terbaru';
+                    if (latestEyebrow) latestEyebrow.innerText = noRelease ? 'MENUNGGU RILIS PERTAMA' : 'SISTEM MUTAKHIR';
+                    document.getElementById('ota-latest-desc').innerText = noRelease
+                        ? 'Belum ada rilis pembaruan publik untuk PangLink. Bar pembaruan akan aktif otomatis setelah rilis pertama dipublikasikan.'
+                        : 'PangLink v' + currentVersion + ' yang terinstal di HP Anda saat ini sudah merupakan versi paling baru.';
+                    setOtaModalView('LATEST');
+                }
+            }
+        }
+
+        function startOtaDownload() {
+            if (!isValidApkDownloadUrl(pendingOtaApkUrl)) {
+                showToast('File APK pembaruan tidak valid');
+                return;
+            }
+            setOtaModalView('DOWNLOADING');
+            setUpdateBarState('DOWNLOADING', { message: 'Menyiapkan unduhan APK' });
+            if (window.AndroidBridge && window.AndroidBridge.startUpdateDownloadWithHash) {
+                window.AndroidBridge.startUpdateDownloadWithHash(pendingOtaApkUrl, pendingOtaSha256 || '');
+            } else if (window.AndroidBridge && window.AndroidBridge.startUpdateDownload) {
+                window.AndroidBridge.startUpdateDownload(pendingOtaApkUrl);
+            } else {
+                window.open(pendingOtaApkUrl, '_blank');
+            }
+        }
+
+        window.onNativeOtaProgress = function(pct, state, message) {
+            setOtaModalView('DOWNLOADING');
+            const bar = document.getElementById('ota-download-bar');
+            const txt = document.getElementById('ota-download-status-text');
+            const title = document.getElementById('ota-download-title');
+            const safePct = Math.max(5, Math.min(100, parseInt(pct, 10) || 0));
+            if (bar) bar.style.width = safePct + '%';
+            if (txt) txt.innerText = message || '';
+            setUpdateBarState('DOWNLOADING', { message: message || ('Mengunduh ' + safePct + '%') });
+            if (state === 'COMPLETE') {
+                if (title) title.innerText = 'Unduhan Selesai! Membuka Installer...';
+                if (bar) bar.style.width = '100%';
+                setTimeout(() => closeOtaModal(), 2200);
+            } else if (state === 'ERROR') {
+                if (title) title.innerText = 'Unduhan Gagal';
+                if (bar) bar.style.background = '#ef4444';
+                setUpdateBarState('ERROR', { message: message || 'Unduhan gagal' });
+            }
+        };
+
+        function scheduleAutoOtaCheck() {
+            let last = 0;
+            try { last = parseInt(localStorage.getItem(OTA_AUTO_CHECK_KEY) || '0', 10) || 0; } catch (_e) {}
+
+            // Tampilkan pembaruan yang sudah ditemukan sebelumnya, agar bar tidak
+            // kembali ke "Periksa" hanya karena aplikasi dibuka ulang.
+            let cached = null;
+            try { cached = JSON.parse(localStorage.getItem(OTA_CACHE_KEY) || 'null'); } catch (_e) {}
+            const currentVersion = getCurrentAppVersion();
+            const currentCode = getCurrentAppVersionCode();
+            if (cached && isValidApkDownloadUrl(cached.apkUrl) && (
+                (cached.versionCode > 0 && cached.versionCode > currentCode) ||
+                (cached.versionCode === 0 && isNewerVersion(currentVersion, cached.version))
+            )) {
+                pendingOtaInfo = cached;
+                pendingOtaApkUrl = cached.apkUrl;
+                pendingOtaSha256 = normalizeSha256(cached.sha256 || '');
+                setUpdateBarState('UPDATE', cached);
+            } else {
+                setUpdateBarState('IDLE');
+            }
+
+            // Cek otomatis maksimal sekali per 30 menit agar tidak memboroskan kuota GitHub API.
+            if (Date.now() - last < 30 * 60 * 1000) return;
+            setTimeout(() => { checkForOtaUpdates(true); }, 1500);
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
             ensureDefaultCarSlot();
+            setUpdateBarState('IDLE');
+            scheduleAutoOtaCheck();
             renderRekapMonthPills();
             initParkingMap();
             renderHeaderAndSelector();

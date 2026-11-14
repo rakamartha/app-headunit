@@ -831,6 +831,60 @@
             return JSON.parse(JSON.stringify(obj));
         }
 
+        // ID perangkat stabil untuk tie-break revisi servis. Urutan data servis
+        // tidak boleh bergantung pada jam HP/headunit yang bisa berbeda.
+        function getSyncDeviceId() {
+            try {
+                let id = localStorage.getItem('gc_sync_device_id_v1');
+                if (!id) {
+                    const bytes = new Uint8Array(6);
+                    if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+                        window.crypto.getRandomValues(bytes);
+                    } else {
+                        for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+                    }
+                    id = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+                    localStorage.setItem('gc_sync_device_id_v1', id);
+                }
+                return id;
+            } catch (_e) {
+                return 'phone';
+            }
+        }
+        const SYNC_DEVICE_ID = getSyncDeviceId();
+
+        // Revisi naik setiap kali pengguna mengubah data servis. Ini pengganti
+        // perbandingan wall-clock yang menyebabkan edit HP ditolak headunit
+        // ketika jam headunit lebih maju.
+        function bumpServiceComponent(comp) {
+            if (!comp) return comp;
+            comp.rev = Math.max(0, Number(comp.rev) || 0) + 1;
+            comp.updatedAt = Date.now();
+            comp.origin = SYNC_DEVICE_ID;
+            try {
+                if (activeCarCode) localStorage.setItem('gc_service_sync_pending_v1_' + activeCarCode, '1');
+            } catch (_e) {}
+            return comp;
+        }
+
+        function shouldApplyServiceComponent(incoming, current) {
+            const inRev = Math.max(0, Number(incoming.rev) || 0);
+            const curRev = Math.max(0, Number(current.rev) || 0);
+            if (inRev !== curRev) return inRev > curRev;
+            if (inRev === 0) {
+                // Snapshot versi lama hanya punya updatedAt. Setelah edit
+                // pertama, rev yang menentukan sehingga jam tidak lagi dipakai.
+                return Number(incoming.updatedAt || 0) >= Number(current.updatedAt || 0);
+            }
+            const inOrigin = String(incoming.origin || '');
+            const curOrigin = String(current.origin || '');
+            // Revisi sama dari perangkat yang sama: izinkan penyegaran data
+            // otomatis (sisa km/hari). Dari perangkat berbeda: pilih deterministik
+            // agar kedua sisi konvergen tanpa bergantung jam.
+            if (inOrigin === curOrigin) return true;
+            return inOrigin > curOrigin;
+        }
+
         function migrateServiceComponentDates(list) {
             if (!Array.isArray(list)) return list;
             for (const comp of list) {
@@ -1726,8 +1780,9 @@
             let components = payload.components;
             if (payload.part && payload.total > 1) {
                 const chunkKey = session.carId;
-                if (!serviceChunkStates[chunkKey] || serviceChunkStates[chunkKey].updatedAt !== payload.updatedAt) {
-                    serviceChunkStates[chunkKey] = { updatedAt: payload.updatedAt, total: payload.total, parts: {} };
+                const snapshotKey = payload.snapshotId || payload.updatedAt;
+                if (!serviceChunkStates[chunkKey] || serviceChunkStates[chunkKey].snapshotKey !== snapshotKey) {
+                    serviceChunkStates[chunkKey] = { snapshotKey: snapshotKey, total: payload.total, parts: {} };
                 }
                 serviceChunkStates[chunkKey].parts[payload.part] = components;
                 if (Object.keys(serviceChunkStates[chunkKey].parts).length < payload.total) return;
@@ -1764,12 +1819,14 @@
                         lastServiceDateIso: incoming.lastServiceDateIso || '',
                         note: incoming.note || '',
                         history: [],
+                        rev: 0,
+                        origin: '',
                         updatedAt: 0
                     };
                     car.serviceComponents.push(comp);
                     changed = true;
                 }
-                if (Number(incoming.updatedAt || 0) < Number(comp.updatedAt || 0)) continue;
+                if (!shouldApplyServiceComponent(incoming, comp)) continue;
                 comp.remKm = Number(incoming.remKm ?? comp.remKm);
                 comp.remDays = Number(incoming.remDays ?? comp.remDays);
                 comp.lastService = incoming.lastService || comp.lastService;
@@ -1777,6 +1834,8 @@
                 comp.note = incoming.note ?? comp.note;
                 // Timestamp 0 dari snapshot lama harus tetap 0 agar update baru menang.
                 comp.updatedAt = Number(incoming.updatedAt || 0);
+                comp.rev = Math.max(0, Number(incoming.rev) || 0);
+                if (incoming.origin !== undefined) comp.origin = String(incoming.origin || '');
                 if (incoming.name) comp.name = incoming.name;
                 if (incoming.iconKey) comp.iconKey = incoming.iconKey;
                 if (incoming.hasKm !== undefined) comp.hasKm = !!incoming.hasKm;
@@ -1916,6 +1975,9 @@
                 await pollCarTopics(car);
                 subscribeCarTopics(car);
             }
+            // Setelah menarik data terbaru, kirim snapshot servis lokal. Ini
+            // memulihkan perubahan yang dibuat saat HP offline / headunit mati.
+            publishAllServicesFromPhone();
             const car = vehiclesMap[activeCarCode];
             document.getElementById('net-text').innerText = car && car.updatedAt
                 ? ('Tersinkron: ' + car.vehicleName + ' (' + formatKmDisplay(car.totalMonthlyKm) + ' KM)')
@@ -1941,30 +2003,59 @@
                 lastService: comp.lastService || '',
                 lastServiceDateIso: comp.lastServiceDateIso || '',
                 note: String(comp.note || '').slice(0, 160),
+                rev: Math.max(0, Number(comp.rev) || 0),
+                origin: String(comp.origin || ''),
                 updatedAt: Number(comp.updatedAt || 0)
             };
         }
 
-        async function publishServiceFromPhone() {
-            const car = vehiclesMap[activeCarCode];
-            if (!car || !car.pairingSecret || !navigator.onLine) return;
-            if (!PDTransport.ready()) return;
+        const lastServicePublishSignatures = {};
+
+        function serviceSnapshotSignature(comps) {
+            // Hanya field yang bermakna; origin/rev ikut agar konflik terdeteksi.
+            return JSON.stringify(comps.map(function (c) {
+                return [c.id, c.name, c.iconKey, c.hasKm ? 1 : 0, c.intervalKm,
+                    c.intervalMonths, c.remKm, c.remDays, c.lastService,
+                    c.lastServiceDateIso, c.note, c.rev, c.origin];
+            }));
+        }
+
+        async function publishServiceFromPhone(carArg, force) {
+            const car = (carArg && carArg.carId) ? carArg : vehiclesMap[activeCarCode];
+            if (!car || !car.pairingSecret) return false;
+            const comps = (Array.isArray(car.serviceComponents) ? car.serviceComponents : []).map(compactServiceComponent);
+            if (!comps.length) return false;
+            const signature = serviceSnapshotSignature(comps);
+            const pendingKey = 'gc_service_sync_pending_v1_' + car.carId;
+            if (!force && lastServicePublishSignatures[car.carId] === signature) {
+                try { localStorage.removeItem(pendingKey); } catch (_e) {}
+                return true;
+            }
+            if (!navigator.onLine || typeof PDTransport === 'undefined' || !PDTransport.ready()) return false;
             try {
                 const session = await getSessionForCar(car);
-                if (!session) return;
-                const comps = serviceComponents.map(compactServiceComponent);
+                if (!session) return false;
                 const updatedAt = Date.now();
+                const snapshotId = updatedAt.toString(36) + '-' + Math.random().toString(36).slice(2, 8);
                 const maxBytes = PDTransport.maxPayloadBytes();
-                const single = await PDSync.seal(session, 'service', { components: comps, updatedAt: updatedAt });
+                const single = await PDSync.seal(session, 'service', {
+                    components: comps, updatedAt: updatedAt, snapshotId: snapshotId
+                });
                 if (single.length <= maxBytes) {
                     await postSyncMessage(session.serviceTopic, single);
-                    return;
+                    lastServicePublishSignatures[car.carId] = signature;
+                    if (serviceSnapshotSignature((car.serviceComponents || []).map(compactServiceComponent)) === signature) {
+                        try { localStorage.removeItem(pendingKey); } catch (_e) {}
+                    }
+                    return true;
                 }
                 const chunks = [];
                 let current = [];
                 for (const comp of comps) {
                     current.push(comp);
-                    const test = await PDSync.seal(session, 'service', { components: current, updatedAt: updatedAt });
+                    const test = await PDSync.seal(session, 'service', {
+                        components: current, updatedAt: updatedAt, snapshotId: snapshotId
+                    });
                     if (test.length > maxBytes && current.length > 1) {
                         current.pop();
                         chunks.push(current);
@@ -1973,10 +2064,34 @@
                 }
                 if (current.length) chunks.push(current);
                 for (let i = 0; i < chunks.length; i++) {
-                    const text = await PDSync.seal(session, 'service', { components: chunks[i], updatedAt: updatedAt, part: i + 1, total: chunks.length });
+                    const text = await PDSync.seal(session, 'service', {
+                        components: chunks[i], updatedAt: updatedAt, snapshotId: snapshotId,
+                        part: i + 1, total: chunks.length
+                    });
                     await postSyncMessage(session.serviceTopic, text);
                 }
-            } catch (_e) {}
+                lastServicePublishSignatures[car.carId] = signature;
+                if (serviceSnapshotSignature((car.serviceComponents || []).map(compactServiceComponent)) === signature) {
+                    try { localStorage.removeItem(pendingKey); } catch (_e) {}
+                }
+                return true;
+            } catch (e) {
+                // Jangan diamkan kegagalan: perubahan tetap tersimpan lokal dan
+                // akan dikirim lagi saat aplikasi dibuka/jaringan pulih.
+                console.warn('Publish servis PangLink gagal:', e && e.message ? e.message : e);
+                return false;
+            }
+        }
+
+        async function publishAllServicesFromPhone() {
+            const paired = Object.values(vehiclesMap).filter(c => c && c.pairingSecret);
+            for (const car of paired) {
+                try {
+                    if (localStorage.getItem('gc_service_sync_pending_v1_' + car.carId) === '1') {
+                        await publishServiceFromPhone(car, false);
+                    }
+                } catch (_e) {}
+            }
         }
 
         // =========================================================================
@@ -2180,6 +2295,12 @@
                 document.getElementById('net-text').innerText = 'HP Offline: Menunggu Jaringan';
             }
         };
+
+        // Saat aplikasi kembali ke depan, kirim perubahan servis yang mungkin
+        // belum terkirim ketika HP terkunci/offline.
+        document.addEventListener('visibilitychange', function () {
+            if (!document.hidden && navigator.onLine) publishAllServicesFromPhone();
+        });
 
         
     // =========================================================================
@@ -2842,7 +2963,7 @@
         comp.lastServiceDateIso = comp.remDays >= maxDays
             ? localDateIso(new Date())
             : daysAgoIso(maxDays - comp.remDays);
-        comp.updatedAt = Date.now();
+        bumpServiceComponent(comp);
 
         saveServiceComponentsToStorage();
         document.getElementById('srv-card-edit-mode').classList.add('hidden');
@@ -2853,13 +2974,21 @@
         showToast('✅ Interval & sisa umur ' + comp.name + ' berhasil disimpan');
     }
 
+    let serviceNotePublishTimer = null;
+
     function saveCurrentServiceNote(val) {
         const comp = serviceComponents.find(c => c.id === selectedServiceCompId);
         if (!comp) return;
         comp.note = String(val || '').slice(0, 160);
-        comp.updatedAt = Date.now();
+        bumpServiceComponent(comp);
         saveServiceComponentsToStorage();
-        publishServiceFromPhone();
+        // Catatan disimpan tiap ketikan, tetapi snapshot hanya dikirim setelah
+        // pengguna berhenti mengetik agar tidak membanjiri kuota sync.
+        if (serviceNotePublishTimer) clearTimeout(serviceNotePublishTimer);
+        serviceNotePublishTimer = setTimeout(function () {
+            serviceNotePublishTimer = null;
+            publishServiceFromPhone();
+        }, 1200);
     }
 
     function markComponentServicedNow() {
@@ -2878,7 +3007,7 @@
         comp.remDays = Math.round((comp.intervalMonths || 12) * 30.4375);
         comp.lastService = `${dateFormatted} (${formatDotNumber(curOdo)} km)`;
         comp.lastServiceDateIso = localDateIso(now);
-        comp.updatedAt = now.getTime();
+        bumpServiceComponent(comp);
 
         if (!Array.isArray(comp.history)) comp.history = [];
         comp.history.unshift({
@@ -2956,9 +3085,12 @@
             lastServiceDateIso: '',
             note: '',
             history: [],
+            rev: 1,
+            origin: SYNC_DEVICE_ID,
             updatedAt: Date.now()
         };
         serviceComponents.push(newComp);
+        try { localStorage.setItem('gc_service_sync_pending_v1_' + activeCarCode, '1'); } catch (_e) {}
         saveServiceComponentsToStorage();
         closeAddServiceCompModal();
         renderServiceDashboard();

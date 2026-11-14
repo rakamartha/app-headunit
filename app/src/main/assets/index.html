@@ -73,7 +73,8 @@
             background: #121212 !important;
             font-family: 'Space Grotesk', sans-serif;
         }
-        .parking-map-dark .leaflet-tile-pane {
+        .parking-map-dark .leaflet-tile-pane,
+        .route-map-dark .leaflet-tile-pane {
             filter: invert(92%) hue-rotate(185deg) brightness(95%) contrast(92%);
         }
         .leaflet-control-attribution { font-size: 9px !important; background: rgba(0,0,0,0.55) !important; color: #a1a1aa !important; }
@@ -226,6 +227,66 @@
         </div>
     </div>
 
+    <!-- HALAMAN PENUH: PETA RUTE PERJALANAN -->
+    <div id="trip-route-overlay" class="hidden-tab fixed inset-0 z-[60] bg-[#0b0b0b] flex flex-col">
+        <div class="px-5 pt-7 pb-4 border-b border-zinc-900 bg-[#0b0b0b]">
+            <button onclick="closeTripRouteModal()" class="text-[11px] font-mono-tech font-bold text-zinc-400 hover:text-white flex items-center gap-1.5 mb-2">
+                <span class="text-base leading-none">&larr;</span> KEMBALI
+            </button>
+            <div class="flex justify-between items-end gap-3">
+                <div class="min-w-0">
+                    <div id="trip-route-car-subtitle" class="text-[10px] font-mono-tech text-zinc-500 tracking-widest uppercase truncate">PANGLINK</div>
+                    <div class="text-2xl font-black tracking-wide brand-gradient-text">RUTE PERJALANAN</div>
+                </div>
+                <div id="trip-route-badge" class="shrink-0 px-2.5 py-1 rounded-lg bg-[#00E5FF]/10 border border-[#00E5FF]/30 text-[10px] font-mono-tech font-bold text-[#00E5FF]">--</div>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto">
+            <div class="relative w-full h-[46vh] min-h-[260px] bg-zinc-950 border-b border-zinc-900">
+                <div id="trip-route-map" class="route-map-dark w-full h-full z-10"></div>
+                <div id="trip-route-empty" class="hidden absolute inset-0 z-20 flex flex-col items-center justify-center text-center px-8 bg-[#0b0b0b]/95">
+                    <div class="w-12 h-12 rounded-2xl bg-[#00E5FF]/10 border border-[#00E5FF]/30 flex items-center justify-center text-[#00E5FF] text-xl font-black mb-3">?</div>
+                    <div class="font-mono-tech text-sm font-extrabold text-zinc-200">RUTE BELUM TERSEDIA</div>
+                    <div class="font-mono-tech text-[11px] text-zinc-500 mt-1.5 leading-relaxed max-w-[280px]">
+                        Rute direkam otomatis pada perjalanan baru setelah headunit memakai PangDash versi terbaru.
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-5 py-5 space-y-4">
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="trip-box rounded-xl p-3 text-center">
+                        <div class="text-[9px] tracking-widest text-zinc-500 font-extrabold">JARAK</div>
+                        <div id="trip-route-dist" class="text-base font-black text-white mt-1">0 km</div>
+                    </div>
+                    <div class="trip-box rounded-xl p-3 text-center">
+                        <div class="text-[9px] tracking-widest text-zinc-500 font-extrabold">DURASI</div>
+                        <div id="trip-route-dur" class="text-base font-black text-white mt-1">0 mnt</div>
+                    </div>
+                    <div class="trip-box rounded-xl p-3 text-center">
+                        <div class="text-[9px] tracking-widest text-zinc-500 font-extrabold">KEC MAKS</div>
+                        <div id="trip-route-max" class="text-base font-black text-white mt-1">0 km/j</div>
+                    </div>
+                </div>
+
+                <div class="trip-box rounded-xl p-4 space-y-2.5 text-[11px] font-mono-tech text-zinc-400">
+                    <div class="flex justify-between gap-3"><span>Mulai</span><strong id="trip-route-start" class="text-white">--</strong></div>
+                    <div class="flex justify-between gap-3"><span>Selesai</span><strong id="trip-route-end" class="text-white">--</strong></div>
+                    <div class="flex justify-between gap-3"><span>Kategori</span><strong id="trip-route-category" class="text-[#FF2BD6]">--</strong></div>
+                    <div class="flex justify-between gap-3"><span>Kecepatan rata-rata</span><strong id="trip-route-avg" class="text-white">--</strong></div>
+                </div>
+
+                <button onclick="openTripRouteInMaps()" class="w-full py-3.5 rounded-2xl bg-[#00E5FF] text-black text-xs font-extrabold tracking-wider shadow-[0_4px_20px_rgba(0,229,255,0.22)]">
+                    BUKA DI GOOGLE MAPS
+                </button>
+                <p class="text-[10px] text-zinc-500 leading-relaxed text-center">
+                    Rute digambar dari titik GPS yang tersimpan di headunit dan disinkronkan terenkripsi.
+                </p>
+            </div>
+        </div>
+    </div>
+
     <!-- HEADER ATAS: AKUN GMAIL & PEMILIH MOBIL -->
     <div class="px-5 pt-5 pb-2 bg-[#0b0b0b] border-b border-zinc-900/80">
         <div class="flex justify-between items-center mb-2.5">
@@ -277,9 +338,10 @@
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
-                    <div class="bg-zinc-900/70 p-4 rounded-2xl border border-zinc-800/80">
+                    <div onclick="openAllTripsModal()" class="bg-zinc-900/70 p-4 rounded-2xl border border-zinc-800/80 cursor-pointer active:scale-[0.98] transition">
                         <div class="text-[10px] tracking-widest text-zinc-500 font-extrabold mb-1">PERJALANAN</div>
                         <div class="text-2xl font-black text-white" id="hp-rekap-trips">0</div>
+                        <div class="text-[9px] tracking-wider text-[#00E5FF] font-extrabold mt-1">LIHAT RUTE &rsaquo;</div>
                     </div>
                     <div class="bg-zinc-900/70 p-4 rounded-2xl border border-zinc-800/80">
                         <div class="text-[10px] tracking-widest text-zinc-500 font-extrabold mb-1">WAKTU JALAN</div>
@@ -383,9 +445,10 @@
                 </div>
 
                 <div class="grid grid-cols-3 gap-2">
-                    <div class="bg-zinc-900/70 p-3 rounded-2xl border border-zinc-800/80 text-center">
+                    <div onclick="openAllTripsModal()" class="bg-zinc-900/70 p-3 rounded-2xl border border-zinc-800/80 text-center cursor-pointer active:scale-[0.98] transition">
                         <div class="text-[9px] tracking-widest text-zinc-500 font-extrabold mb-1">PERJALANAN</div>
                         <div class="text-lg font-black text-white" id="hp-stat-trips">0</div>
+                        <div class="text-[9px] tracking-wider text-[#00E5FF] font-extrabold mt-1">LIHAT RUTE &rsaquo;</div>
                     </div>
                     <div class="bg-zinc-900/70 p-3 rounded-2xl border border-zinc-800/80 text-center">
                         <div class="text-[9px] tracking-widest text-zinc-500 font-extrabold mb-1">RATA-RATA</div>
@@ -898,6 +961,162 @@
             parkingMap.setView([targetLat, targetLng], 17, { animate: true });
         }
 
+        // =========================================================================
+        // 2B. PETA RUTE PERJALANAN (DIBUKA DARI PERJALANAN TERBARU / SEMUA TRIP)
+        // =========================================================================
+        let tripRouteMap = null;
+        let tripRouteLayer = null;
+        let activeRouteTrip = null;
+
+        function decodeRoutePolyline(encoded) {
+            if (!encoded || typeof encoded !== 'string') return [];
+            const points = [];
+            let index = 0;
+            let lat = 0;
+            let lng = 0;
+            while (index < encoded.length) {
+                let result = 0;
+                let shift = 0;
+                let b;
+                do {
+                    b = encoded.charCodeAt(index++) - 63;
+                    result |= (b & 0x1f) << shift;
+                    shift += 5;
+                } while (b >= 0x20 && index < encoded.length);
+                lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+
+                result = 0;
+                shift = 0;
+                do {
+                    b = encoded.charCodeAt(index++) - 63;
+                    result |= (b & 0x1f) << shift;
+                    shift += 5;
+                } while (b >= 0x20 && index < encoded.length);
+                lng += (result & 1) ? ~(result >> 1) : (result >> 1);
+
+                points.push([lat / 1e5, lng / 1e5]);
+            }
+            return points;
+        }
+
+        function normalizeTripRoute(route) {
+            if (Array.isArray(route)) {
+                return route
+                    .filter(p => Array.isArray(p) && p.length >= 2 && isFinite(p[0]) && isFinite(p[1]))
+                    .map(p => [Number(p[0]), Number(p[1])]);
+            }
+            return decodeRoutePolyline(route);
+        }
+
+        function initTripRouteMap() {
+            if (tripRouteMap) return tripRouteMap;
+            if (typeof L === 'undefined') return null;
+            tripRouteMap = L.map('trip-route-map', { zoomControl: true }).setView([DEFAULT_LAT, DEFAULT_LNG], 14);
+            const gLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=m&hl=id&x={x}&y={y}&z={z}', {
+                maxZoom: 20,
+                attribution: '&copy; Google'
+            });
+            let osmFallbackAdded = false;
+            gLayer.on('tileerror', function() {
+                if (osmFallbackAdded) return;
+                osmFallbackAdded = true;
+                L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                }).addTo(tripRouteMap);
+            });
+            gLayer.addTo(tripRouteMap);
+            tripRouteLayer = L.layerGroup().addTo(tripRouteMap);
+            return tripRouteMap;
+        }
+
+        function openTripRouteModal(tripIdEncoded) {
+            let tripId = String(tripIdEncoded || '');
+            try { tripId = decodeURIComponent(tripId); } catch (_e) {}
+            const car = vehiclesMap[activeCarCode];
+            if (!car) return;
+            const trip = (car.tripHistory || []).find(t => t.tripId === tripId);
+            if (!trip) {
+                showToast('Data perjalanan tidak ditemukan');
+                return;
+            }
+            activeRouteTrip = trip;
+            document.getElementById('trip-route-car-subtitle').innerText =
+                car.vehicleName + ' (' + (car.pairingCode || car.carId) + ')';
+            document.getElementById('trip-route-badge').innerText = formatDayLabelForTrip(trip.dateIso);
+            document.getElementById('trip-route-dist').innerText = formatKmDisplay(trip.distanceKm) + ' km';
+            document.getElementById('trip-route-dur').innerText = Math.max(1, parseInt(trip.durationMinutes || 1)) + ' mnt';
+            document.getElementById('trip-route-max').innerText = (trip.maxSpeedKmh || 0) + ' km/j';
+            document.getElementById('trip-route-start').innerText = (trip.startTime || '--').replace(':', '.');
+            document.getElementById('trip-route-end').innerText = (trip.endTime || '--').replace(':', '.');
+            document.getElementById('trip-route-category').innerText = (trip.category || 'PRIBADI').toUpperCase();
+            document.getElementById('trip-route-avg').innerText = (trip.avgSpeedKmh || 0) + ' km/j';
+            document.getElementById('trip-route-overlay').classList.remove('hidden-tab');
+            setTimeout(function() { renderTripRouteMap(trip); }, 90);
+        }
+
+        function renderTripRouteMap(trip) {
+            const map = initTripRouteMap();
+            const empty = document.getElementById('trip-route-empty');
+            if (!map) {
+                if (empty) empty.classList.remove('hidden');
+                return;
+            }
+            map.invalidateSize();
+            if (tripRouteLayer) tripRouteLayer.clearLayers();
+            const points = normalizeTripRoute(trip.route);
+            if (points.length < 2) {
+                if (empty) empty.classList.remove('hidden');
+                map.setView([DEFAULT_LAT, DEFAULT_LNG], 13);
+                setTimeout(function() { map.invalidateSize(); }, 160);
+                return;
+            }
+            if (empty) empty.classList.add('hidden');
+            L.polyline(points, {
+                color: '#FF2BD6', weight: 11, opacity: 0.22,
+                lineJoin: 'round', lineCap: 'round'
+            }).addTo(tripRouteLayer);
+            L.polyline(points, {
+                color: '#00E5FF', weight: 5, opacity: 0.95,
+                lineJoin: 'round', lineCap: 'round'
+            }).addTo(tripRouteLayer);
+            const startIcon = L.divIcon({
+                className: '',
+                html: '<div style="width:16px;height:16px;border-radius:999px;background:#10b981;border:3px solid #fff;box-shadow:0 0 12px rgba(16,185,129,0.9);"></div>',
+                iconSize: [16, 16], iconAnchor: [8, 8]
+            });
+            const endIcon = L.divIcon({
+                className: '',
+                html: '<div style="width:18px;height:18px;border-radius:999px;background:#FF2BD6;border:3px solid #fff;box-shadow:0 0 14px rgba(255,43,214,0.9);"></div>',
+                iconSize: [18, 18], iconAnchor: [9, 9]
+            });
+            L.marker(points[0], { icon: startIcon }).addTo(tripRouteLayer).bindPopup('Awal perjalanan');
+            L.marker(points[points.length - 1], { icon: endIcon }).addTo(tripRouteLayer).bindPopup('Akhir perjalanan');
+            map.fitBounds(L.latLngBounds(points), { padding: [26, 26], maxZoom: 17 });
+            setTimeout(function() { map.invalidateSize(); }, 160);
+        }
+
+        function closeTripRouteModal() {
+            document.getElementById('trip-route-overlay').classList.add('hidden-tab');
+            activeRouteTrip = null;
+        }
+
+        function openTripRouteInMaps() {
+            if (!activeRouteTrip) return;
+            const points = normalizeTripRoute(activeRouteTrip.route);
+            if (points.length < 2) {
+                showToast('Rute perjalanan ini belum tersedia');
+                return;
+            }
+            const start = points[0];
+            const end = points[points.length - 1];
+            const url = 'https://www.google.com/maps/dir/?api=1&origin=' +
+                encodeURIComponent(start[0] + ',' + start[1]) +
+                '&destination=' + encodeURIComponent(end[0] + ',' + end[1]) +
+                '&travelmode=driving';
+            window.open(url, '_blank');
+        }
+
         function centerParkingMap() {
             const car = vehiclesMap[activeCarCode];
             const lat = (car && car.lastLat) ? Number(car.lastLat) : DEFAULT_LAT;
@@ -1151,15 +1370,23 @@
                 const avgSpd = t.avgSpeedKmh ? ` • Rata ${t.avgSpeedKmh} km/j` : '';
                 const maxSpd = t.maxSpeedKmh ? ` • Maks ${t.maxSpeedKmh} km/j` : '';
                 const borderCls = idx > 0 ? 'border-t border-[#262626]' : '';
+                const hasRoute = !!t.route;
 
                 return `
-                    <div onclick="openAllTripsModal()" class="px-5 py-4 ${borderCls} hover:bg-zinc-900/40 transition cursor-pointer">
-                        <div class="font-mono-tech text-lg font-extrabold text-white tracking-wider">
-                            <span>${dayLbl}</span>
-                            <span class="ml-3">${startStr} - ${endStr}</span>
-                        </div>
-                        <div class="font-mono-tech text-sm text-zinc-400 mt-1">
-                            ${distStr} km &nbsp;&bull;&nbsp; ${durMin} mnt<span class="text-xs text-zinc-500">${avgSpd}${maxSpd}</span>
+                    <div onclick="openTripRouteModal('${encodeURIComponent(t.tripId || '')}')" class="px-5 py-4 ${borderCls} hover:bg-zinc-900/40 transition cursor-pointer">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="font-mono-tech text-lg font-extrabold text-white tracking-wider">
+                                    <span>${dayLbl}</span>
+                                    <span class="ml-3">${startStr} - ${endStr}</span>
+                                </div>
+                                <div class="font-mono-tech text-sm text-zinc-400 mt-1">
+                                    ${distStr} km &nbsp;&bull;&nbsp; ${durMin} mnt<span class="text-xs text-zinc-500">${avgSpd}${maxSpd}</span>
+                                </div>
+                            </div>
+                            <span class="shrink-0 font-mono-tech text-[10px] font-extrabold tracking-wider ${hasRoute ? 'text-[#00E5FF]' : 'text-zinc-600'}">
+                                ${hasRoute ? 'RUTE &rsaquo;' : 'TANPA RUTE'}
+                            </span>
                         </div>
                     </div>
                 `;
@@ -1256,14 +1483,20 @@
                     const maxSpd = t.maxSpeedKmh ? `Maks ${t.maxSpeedKmh} km/j` : '';
                     const catBadge = t.category ? `<span class="px-2 py-0.5 rounded bg-zinc-800 text-[10px] text-[#FF2BD6] font-mono-tech">${escapeHtml(t.category)}</span>` : '';
                     const borderTop = idx > 0 ? 'border-t border-[#262626]' : '';
+                    const hasRoute = !!t.route;
 
                     return `
-                        <div class="px-4 py-3.5 ${borderTop}">
-                            <div class="flex justify-between items-center">
+                        <div onclick="openTripRouteModal('${encodeURIComponent(t.tripId || '')}')" class="px-4 py-3.5 ${borderTop} hover:bg-zinc-900/60 transition cursor-pointer">
+                            <div class="flex justify-between items-center gap-2">
                                 <div class="font-mono-tech text-base font-extrabold text-white tracking-wider">
                                     ${startStr} - ${endStr}
                                 </div>
-                                ${catBadge}
+                                <div class="flex items-center gap-2 shrink-0">
+                                    ${catBadge}
+                                    <span class="font-mono-tech text-[9px] font-extrabold tracking-wider ${hasRoute ? 'text-[#00E5FF]' : 'text-zinc-600'}">
+                                        ${hasRoute ? 'RUTE &rsaquo;' : 'TANPA RUTE'}
+                                    </span>
+                                </div>
                             </div>
                             <div class="flex justify-between items-center mt-1">
                                 <div class="font-mono-tech text-xs text-zinc-400">
@@ -1422,15 +1655,29 @@
             for (const item of (existingLogs || [])) {
                 if (item && item.tripId) mapById[item.tripId] = item;
             }
-            if (Array.isArray(incomingLogs)) {
-                for (const item of incomingLogs) {
-                    if (item && item.tripId) mapById[item.tripId] = item;
+            const mergeOne = (item) => {
+                if (!item || !item.tripId) return;
+                const prev = mapById[item.tripId];
+                const merged = Object.assign({}, prev || {}, item);
+                // State payload hanya membawa rute trip terbaru. Jangan hapus
+                // rute yang sudah diterima lewat pesan purpose "route".
+                if (!merged.route && prev && prev.route) merged.route = prev.route;
+                mapById[item.tripId] = merged;
+            };
+            if (Array.isArray(incomingLogs)) incomingLogs.forEach(mergeOne);
+            if (singleCompletedTrip) mergeOne(singleCompletedTrip);
+            return Object.values(mapById).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        }
+
+        function attachPendingRoutes(car, trips) {
+            if (!car || !car.pendingRoutes || !Array.isArray(trips)) return trips;
+            for (const trip of trips) {
+                if (!trip.route && car.pendingRoutes[trip.tripId]) {
+                    trip.route = car.pendingRoutes[trip.tripId];
+                    delete car.pendingRoutes[trip.tripId];
                 }
             }
-            if (singleCompletedTrip && singleCompletedTrip.tripId) {
-                mapById[singleCompletedTrip.tripId] = singleCompletedTrip;
-            }
-            return Object.values(mapById).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            return trips;
         }
 
         function applyIncomingState(data, session) {
@@ -1444,7 +1691,7 @@
                 pairingCode: '',
                 pairingSecret: ''
             });
-            const mergedHistory = mergeTripLogs(car.tripHistory, data.tripHistory);
+            const mergedHistory = attachPendingRoutes(car, mergeTripLogs(car.tripHistory, data.tripHistory));
 
             car.vehicleName = data.vehicleName || car.vehicleName || ('Mobil ' + carId);
             car.monthKey = data.monthKey || car.monthKey || '';
@@ -1552,13 +1799,47 @@
             }
         }
 
+        function applyIncomingRoute(payload, session) {
+            if (!payload || !payload.tripId || !session) return;
+            const car = vehiclesMap[session.carId];
+            if (!car) return;
+            const route = String(payload.route || '');
+            if (!route) return;
+
+            const trips = Array.isArray(car.tripHistory) ? car.tripHistory : [];
+            const trip = trips.find(t => t.tripId === payload.tripId);
+            if (!trip) {
+                // Rute bisa tiba sebelum state trip. Simpan sementara agar
+                // ditempel saat trip yang sama masuk lewat state.
+                if (!car.pendingRoutes) car.pendingRoutes = {};
+                car.pendingRoutes[payload.tripId] = route;
+                saveVehiclesToStorage();
+                return;
+            }
+            if (trip.route === route) return;
+            trip.route = route;
+            if (car.pendingRoutes && car.pendingRoutes[payload.tripId]) {
+                delete car.pendingRoutes[payload.tripId];
+            }
+            saveVehiclesToStorage();
+            if (car.carId === activeCarCode) renderActiveVehicleUI();
+        }
+
         async function handleSecureMessage(car, purpose, message) {
             if (!message || !car) return;
             const session = await getSessionForCar(car);
             if (!session) return;
-            const env = await PDSync.open(session, purpose, message);
-            if (!env || rememberNonce(session.carId, purpose, env.nonce)) return;
-            if (purpose === 'state') applyIncomingState(env.payload, session);
+            let resolvedPurpose = purpose;
+            let env = await PDSync.open(session, purpose, message);
+            if (!env && purpose === 'state') {
+                // Pesan rute memakai topik state dengan purpose berbeda agar
+                // tidak perlu channel/izin Ably tambahan.
+                env = await PDSync.open(session, 'route', message);
+                if (env) resolvedPurpose = 'route';
+            }
+            if (!env || rememberNonce(session.carId, resolvedPurpose, env.nonce)) return;
+            if (resolvedPurpose === 'state') applyIncomingState(env.payload, session);
+            else if (resolvedPurpose === 'route') applyIncomingRoute(env.payload, session);
             else applyIncomingService(env.payload, session);
         }
 
@@ -1566,7 +1847,9 @@
             const session = await getSessionForCar(car);
             if (!session || !PDTransport.ready()) return;
             try {
-                const stateMessages = await PDTransport.fetchRecent(session.stateTopic, 40);
+                // 120 pesan terakhir: cukup untuk memulihkan pesan rute yang
+                // dikirim saat perjalanan selesai meski HP sempat offline.
+                const stateMessages = await PDTransport.fetchRecent(session.stateTopic, 120);
                 for (const message of stateMessages) {
                     try {
                         await handleSecureMessage(car, 'state', message);

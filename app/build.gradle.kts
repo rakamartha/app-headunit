@@ -92,7 +92,8 @@ android {
     }
 
     lint {
-        abortOnError = false
+        // Error lint harus menghentikan build, seperti pada PangDash headunit.
+        abortOnError = true
         checkReleaseBuilds = false
     }
 }

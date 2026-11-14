@@ -78,7 +78,9 @@ class MainActivity : Activity() {
         }
     }
 
-    @SuppressLint("SetJavaScriptEnabled")
+    @SuppressLint("SetJavaScriptEnabled", "UnspecifiedRegisterReceiverFlag")
+    // Suppress lint: flag RECEIVER_NOT_EXPORTED sudah eksplisit di Android 13+;
+    // konstanta RECEIVER_* tidak tersedia untuk cabang Android 12 ke bawah.
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 

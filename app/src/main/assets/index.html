@@ -1054,12 +1054,33 @@
         }
 
         function normalizeTripRoute(route) {
+            if (route && !Array.isArray(route) && Array.isArray(route.segments)) {
+                return route.segments.map(decodeRoutePolyline).filter(points => points.length > 0);
+            }
             if (Array.isArray(route)) {
-                return route
+                if (route.length && typeof route[0] === 'string') {
+                    return route.map(decodeRoutePolyline).filter(points => points.length > 0);
+                }
+                if (route.length && Array.isArray(route[0]) && Array.isArray(route[0][0])) {
+                    return route.map(segment => segment
+                        .filter(p => Array.isArray(p) && p.length >= 2 && isFinite(p[0]) && isFinite(p[1]))
+                        .map(p => [Number(p[0]), Number(p[1])])
+                    ).filter(points => points.length > 0);
+                }
+                const points = route
                     .filter(p => Array.isArray(p) && p.length >= 2 && isFinite(p[0]) && isFinite(p[1]))
                     .map(p => [Number(p[0]), Number(p[1])]);
+                return points.length ? [points] : [];
             }
-            return decodeRoutePolyline(route);
+            const points = decodeRoutePolyline(route);
+            return points.length ? [points] : [];
+        }
+
+        function getTripAverageSpeed(trip) {
+            const average = Number(trip && trip.avgSpeedKmh);
+            const maximum = Number(trip && trip.maxSpeedKmh);
+            if (!isFinite(average) || average <= 0) return 0;
+            return Math.round(maximum > 0 ? Math.min(average, maximum) : average);
         }
 
         function initTripRouteMap() {
@@ -1104,7 +1125,7 @@
             document.getElementById('trip-route-start').innerText = (trip.startTime || '--').replace(':', '.');
             document.getElementById('trip-route-end').innerText = (trip.endTime || '--').replace(':', '.');
             document.getElementById('trip-route-category').innerText = (trip.category || 'PRIBADI').toUpperCase();
-            document.getElementById('trip-route-avg').innerText = (trip.avgSpeedKmh || 0) + ' km/j';
+            document.getElementById('trip-route-avg').innerText = getTripAverageSpeed(trip) + ' km/j';
             document.getElementById('trip-route-overlay').classList.remove('hidden-tab');
             setTimeout(function() { renderTripRouteMap(trip); }, 90);
         }
@@ -1118,22 +1139,25 @@
             }
             map.invalidateSize();
             if (tripRouteLayer) tripRouteLayer.clearLayers();
-            const points = normalizeTripRoute(trip.route);
-            if (points.length < 2) {
+            const segments = normalizeTripRoute(trip.route).filter(points => points.length >= 2);
+            const points = segments.reduce((all, segment) => all.concat(segment), []);
+            if (!points.length) {
                 if (empty) empty.classList.remove('hidden');
                 map.setView([DEFAULT_LAT, DEFAULT_LNG], 13);
                 setTimeout(function() { map.invalidateSize(); }, 160);
                 return;
             }
             if (empty) empty.classList.add('hidden');
-            L.polyline(points, {
-                color: '#FF2BD6', weight: 11, opacity: 0.22,
-                lineJoin: 'round', lineCap: 'round'
-            }).addTo(tripRouteLayer);
-            L.polyline(points, {
-                color: '#00E5FF', weight: 5, opacity: 0.95,
-                lineJoin: 'round', lineCap: 'round'
-            }).addTo(tripRouteLayer);
+            segments.forEach(segment => {
+                L.polyline(segment, {
+                    color: '#FF2BD6', weight: 11, opacity: 0.22,
+                    lineJoin: 'round', lineCap: 'round'
+                }).addTo(tripRouteLayer);
+                L.polyline(segment, {
+                    color: '#00E5FF', weight: 5, opacity: 0.95,
+                    lineJoin: 'round', lineCap: 'round'
+                }).addTo(tripRouteLayer);
+            });
             const startIcon = L.divIcon({
                 className: '',
                 html: '<div style="width:16px;height:16px;border-radius:999px;background:#10b981;border:3px solid #fff;box-shadow:0 0 12px rgba(16,185,129,0.9);"></div>',
@@ -1157,13 +1181,14 @@
 
         function openTripRouteInMaps() {
             if (!activeRouteTrip) return;
-            const points = normalizeTripRoute(activeRouteTrip.route);
-            if (points.length < 2) {
+            const segments = normalizeTripRoute(activeRouteTrip.route).filter(points => points.length >= 2);
+            if (!segments.length) {
                 showToast('Rute perjalanan ini belum tersedia');
                 return;
             }
-            const start = points[0];
-            const end = points[points.length - 1];
+            const start = segments[0][0];
+            const lastSegment = segments[segments.length - 1];
+            const end = lastSegment[lastSegment.length - 1];
             const url = 'https://www.google.com/maps/dir/?api=1&origin=' +
                 encodeURIComponent(start[0] + ',' + start[1]) +
                 '&destination=' + encodeURIComponent(end[0] + ',' + end[1]) +
@@ -1421,7 +1446,7 @@
                 const endStr = (t.endTime || '00.00').replace(':', '.');
                 const distStr = formatKmDisplay(t.distanceKm);
                 const durMin = Math.max(1, parseInt(t.durationMinutes || 1));
-                const avgSpd = t.avgSpeedKmh ? ` • Rata ${t.avgSpeedKmh} km/j` : '';
+                    const avgSpd = getTripAverageSpeed(t) ? ` • Rata ${getTripAverageSpeed(t)} km/j` : '';
                 const maxSpd = t.maxSpeedKmh ? ` • Maks ${t.maxSpeedKmh} km/j` : '';
                 const borderCls = idx > 0 ? 'border-t border-[#262626]' : '';
                 const hasRoute = !!t.route;
@@ -1533,7 +1558,7 @@
                     const endStr = (t.endTime || '00.00').replace(':', '.');
                     const distStr = formatKmDisplay(t.distanceKm);
                     const durMin = Math.max(1, parseInt(t.durationMinutes || 1));
-                    const avgSpd = t.avgSpeedKmh ? `Rata ${t.avgSpeedKmh} km/j` : '';
+                    const avgSpd = getTripAverageSpeed(t) ? `Rata ${getTripAverageSpeed(t)} km/j` : '';
                     const maxSpd = t.maxSpeedKmh ? `Maks ${t.maxSpeedKmh} km/j` : '';
                     const catBadge = t.category ? `<span class="px-2 py-0.5 rounded bg-zinc-800 text-[10px] text-[#FF2BD6] font-mono-tech">${escapeHtml(t.category)}</span>` : '';
                     const borderTop = idx > 0 ? 'border-t border-[#262626]' : '';
@@ -1630,15 +1655,26 @@
             let tripsCnt = parseInt(car.tripsCount || 0);
             let durSec = parseInt(car.totalDurationSec || 0);
             let maxDist = parseFloat(car.longestTripKm || 0);
+            let avgSpeedVal = Number(car.avgSpeedKmh || 0);
+            let avgSpeedCap = Number(car.maxSpeedKmh || 0);
+            if (!isFinite(avgSpeedVal) || avgSpeedVal < 0) avgSpeedVal = 0;
+            if (!isFinite(avgSpeedCap) || avgSpeedCap < 0) avgSpeedCap = 0;
+            const monthPrefix = currentMonthKey();
+            const monthTripsForStats = filteredTrips.filter(t => (t.dateIso || '').slice(0, 7) === monthPrefix);
+            if (monthTripsForStats.length) {
+                avgSpeedCap = Math.max(avgSpeedCap, ...monthTripsForStats.map(t => Number(t.maxSpeedKmh) || 0));
+            }
 
             if (filteredTrips.length > 0 && currentCatFilter !== 'ALL') {
-                const monthPrefix = currentMonthKey();
-                const monthTrips = filteredTrips.filter(t => (t.dateIso || '').slice(0, 7) === monthPrefix);
+                const monthTrips = monthTripsForStats;
                 kmVal = monthTrips.reduce((s, t) => s + Number(t.distanceKm || 0), 0);
                 tripsCnt = monthTrips.length;
                 durSec = monthTrips.reduce((s, t) => s + (Number(t.durationMinutes || 0) * 60), 0);
                 maxDist = Math.max(0, ...monthTrips.map(t => Number(t.distanceKm || 0)));
+                if (durSec > 0) avgSpeedVal = kmVal / (durSec / 3600);
             }
+            if (avgSpeedCap > 0) avgSpeedVal = Math.min(avgSpeedVal, avgSpeedCap);
+            avgSpeedVal = isFinite(avgSpeedVal) ? Math.max(0, Math.round(avgSpeedVal)) : 0;
 
             // Tab Garasi (Rekap Bulanan)
             document.getElementById('hp-rekap-dist').innerHTML = `${kmVal.toFixed(1).replace('.', ',')} <span class="text-3xl font-bold text-[#00E5FF]">KM</span>`;
@@ -1662,7 +1698,7 @@
             document.getElementById('hp-stat-dist').innerText = formatKmDisplay(kmVal) + ' km';
             document.getElementById('hp-stat-time').innerText = formatDuration(durSec);
             document.getElementById('hp-stat-trips').innerText = tripsCnt;
-            document.getElementById('hp-stat-avg').innerText = (car.avgSpeedKmh || 0) + ' km/j';
+            document.getElementById('hp-stat-avg').innerText = avgSpeedVal + ' km/j';
             document.getElementById('hp-stat-max').innerText = (car.maxSpeedKmh || 0) + ' km/j';
 
             renderSequentialChart(car, filteredTrips);
@@ -1862,8 +1898,9 @@
             if (!payload || !payload.tripId || !session) return;
             const car = vehiclesMap[session.carId];
             if (!car) return;
-            const route = String(payload.route || '');
-            if (!route) return;
+            const route = payload.route;
+            if (!(typeof route === 'string' && route) && !(Array.isArray(route) && route.length) &&
+                !(route && Array.isArray(route.segments) && route.segments.length)) return;
 
             const trips = Array.isArray(car.tripHistory) ? car.tripHistory : [];
             const trip = trips.find(t => t.tripId === payload.tripId);
@@ -1875,7 +1912,7 @@
                 saveVehiclesToStorage();
                 return;
             }
-            if (trip.route === route) return;
+            if (JSON.stringify(trip.route || null) === JSON.stringify(route)) return;
             trip.route = route;
             if (car.pendingRoutes && car.pendingRoutes[payload.tripId]) {
                 delete car.pendingRoutes[payload.tripId];

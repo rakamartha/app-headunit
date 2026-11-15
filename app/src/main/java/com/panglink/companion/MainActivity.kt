@@ -16,7 +16,6 @@ import android.net.Network
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Environment
 import android.os.SystemClock
 import android.provider.Settings
 import android.view.View
@@ -27,26 +26,28 @@ import android.view.WindowInsetsController
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.Toast
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileInputStream
-import java.io.FileOutputStream
-import java.net.HttpURLConnection
-import java.net.URL
 import java.security.MessageDigest
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 
 class MainActivity : Activity() {
 
     private var webView: WebView? = null
     private var connectivityManager: ConnectivityManager? = null
 
-    @Volatile private var pendingOtaApkFile: File? = null
-    @Volatile private var isOtaDownloadingNow: Boolean = false
+    private data class PendingUpdate(val file: File, val sha256: String)
+    @Volatile private var pendingOtaUpdate: PendingUpdate? = null
+    private val otaBusy = AtomicBoolean(false)
+    private val updatePolicy = UpdatePolicy(BuildConfig.OTA_REPOSITORY)
     @Volatile private var otaSessionToken: String? = null
     private val otaAction = "com.panglink.companion.OTA_INSTALL_COMMIT"
 
@@ -62,18 +63,22 @@ class MainActivity : Activity() {
             if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
                 val confirmIntent = intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
                 if (confirmIntent == null) {
-                    pushOtaStatusToWeb(0, "ERROR", "Installer tidak mengirim intent konfirmasi.")
+                    failOtaUpdate(null, "Installer tidak mengirim intent konfirmasi.")
                     return
                 }
                 try {
                     confirmIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     startActivity(confirmIntent)
                 } catch (e: Throwable) {
-                    pushOtaStatusToWeb(0, "ERROR", "Gagal membuka installer: ${e.message}")
+                    failOtaUpdate(null, "Gagal membuka installer: ${e.message}")
                 }
             } else if (status != PackageInstaller.STATUS_SUCCESS) {
                 val msg = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "Gagal memasang paket"
-                pushOtaStatusToWeb(0, "ERROR", "Instalasi dibatalkan / gagal: $msg")
+                failOtaUpdate(null, "Instalasi dibatalkan / gagal: $msg")
+            } else {
+                otaSessionToken = null
+                otaBusy.set(false)
+                pushOtaStatusToWeb(100, "COMPLETE", "Pembaruan berhasil dipasang.")
             }
         }
     }
@@ -129,15 +134,23 @@ class MainActivity : Activity() {
 
             wv.webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                    val target = request?.url ?: return false
-                    val scheme = target.scheme?.lowercase() ?: return false
-                    if (scheme == "file" || scheme == "about" || scheme == "data") return false
-                    return try {
-                        startActivity(Intent(Intent.ACTION_VIEW, target).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                        true
-                    } catch (_: Throwable) {
-                        true
+                    val target = request?.url ?: return true
+                    if (!request.isForMainFrame) return true
+                    if (UpdatePolicy.isTrustedAppPage(target.toString())) return false
+                    // Halaman yang memiliki native bridge hanya boleh berasal dari aset aplikasi.
+                    if (request.hasGesture() && target.scheme == "https") {
+                        try {
+                            startActivity(Intent(Intent.ACTION_VIEW, target).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        } catch (_: Throwable) {}
                     }
+                    return true
+                }
+
+                override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+                    if (request?.isForMainFrame == true && !UpdatePolicy.isTrustedAppPage(request.url.toString())) {
+                        return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0)))
+                    }
+                    return super.shouldInterceptRequest(view, request)
                 }
             }
             wv.webChromeClient = WebChromeClient()
@@ -204,19 +217,23 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         hideSystemUI()
-        val fileToInstall = pendingOtaApkFile
-        if (fileToInstall != null && fileToInstall.exists() &&
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-            packageManager.canRequestPackageInstalls()
-        ) {
-            pendingOtaApkFile = null
-            window?.decorView?.postDelayed({ installApkFromFile(fileToInstall) }, 350)
+        val update = pendingOtaUpdate
+        if (update != null) {
+            pendingOtaUpdate = null
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || packageManager.canRequestPackageInstalls()) {
+                // File, checksum, package, versi, dan sertifikat diperiksa lagi setelah kembali dari Setelan.
+                installApkFromFile(update)
+            } else {
+                failOtaUpdate(update, "Izin pemasangan belum diberikan. Pembaruan dibatalkan.")
+            }
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
         try { unregisterReceiver(otaDownloadReceiver) } catch (_: Throwable) {}
+        pendingOtaUpdate?.file?.delete()
+        pendingOtaUpdate = null
     }
 
     private fun pushOtaStatusToWeb(pct: Int, state: String, message: String) {
@@ -230,82 +247,123 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun installApkFromFile(apkFile: File) {
-        runOnUiThread {
+    private fun failOtaUpdate(update: PendingUpdate?, message: String) {
+        update?.file?.delete()
+        pendingOtaUpdate = null
+        otaSessionToken = null
+        otaBusy.set(false)
+        pushOtaStatusToWeb(0, "ERROR", message)
+    }
+
+    private fun installApkFromFile(update: PendingUpdate) {
+        Thread {
             try {
-                if (!apkFile.exists() || apkFile.length() < 50_000L) {
-                    pushOtaStatusToWeb(0, "ERROR", "File APK tidak ditemukan atau belum utuh.")
-                    return@runOnUiThread
-                }
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
-                    pendingOtaApkFile = apkFile
-                    pushOtaStatusToWeb(100, "COMPLETE", "Izinkan 'Instal aplikasi tidak dikenal' di layar berikutnya, lalu tekan Kembali.")
-                    Toast.makeText(
-                        this@MainActivity,
-                        "Aktifkan izin 'Instal aplikasi tidak dikenal' untuk PangLink, lalu kembali",
-                        Toast.LENGTH_LONG
-                    ).show()
-                    val permIntent = Intent(
-                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                        Uri.parse("package:$packageName")
-                    ).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                verifyUpdate(update)
+                runOnUiThread {
+                    try {
+                        check(!isFinishing && !isDestroyed) { "Layar pembaruan sudah ditutup." }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
+                            pendingOtaUpdate = update
+                            pushOtaStatusToWeb(100, "COMPLETE", "Pembaruan terverifikasi. Izinkan pemasangan dari PangLink, lalu kembali.")
+                            startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+                        } else {
+                            commitOtaInstall(update)
+                        }
+                    } catch (e: Exception) {
+                        failOtaUpdate(update, "Gagal membuka installer: ${e.message}")
                     }
-                    startActivity(permIntent)
-                    return@runOnUiThread
                 }
+            } catch (e: Exception) {
+                failOtaUpdate(update, "Pembaruan ditolak: ${e.message}")
+            }
+        }.start()
+    }
 
-                pendingOtaApkFile = null
-
-                val packageInstaller = packageManager.packageInstaller
+    private fun commitOtaInstall(update: PendingUpdate) {
+        Thread {
+            val packageInstaller = packageManager.packageInstaller
+            var sessionId: Int? = null
+            var committed = false
+            try {
+                verifyUpdate(update)
                 val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
                 params.setAppPackageName(packageName)
-                val sessionId = packageInstaller.createSession(params)
-                val session = packageInstaller.openSession(sessionId)
-
-                FileInputStream(apkFile).use { input ->
-                    session.openWrite("PangLink_Update.apk", 0, apkFile.length()).use { output ->
-                        val buffer = ByteArray(65536)
-                        var bytesRead: Int
-                        while (input.read(buffer).also { bytesRead = it } != -1) {
-                            output.write(buffer, 0, bytesRead)
+                params.setSize(update.file.length())
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED)
+                }
+                val createdSessionId = packageInstaller.createSession(params)
+                sessionId = createdSessionId
+                packageInstaller.openSession(createdSessionId).use { session ->
+                    // Cocokkan juga byte yang benar-benar disalin ke sesi installer.
+                    val digest = MessageDigest.getInstance("SHA-256")
+                    FileInputStream(update.file).use { input ->
+                        session.openWrite("PangLink_Update.apk", 0, update.file.length()).use { output ->
+                            val buffer = ByteArray(65536)
+                            var bytesRead: Int
+                            while (input.read(buffer).also { bytesRead = it } != -1) {
+                                output.write(buffer, 0, bytesRead)
+                                digest.update(buffer, 0, bytesRead)
+                            }
+                            session.fsync(output)
                         }
-                        session.fsync(output)
                     }
-                }
+                    val copiedHash = digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
+                    check(copiedHash == update.sha256) { "File APK berubah sebelum instalasi." }
 
-                val sessionToken = UUID.randomUUID().toString()
-                otaSessionToken = sessionToken
-                val callbackIntent = Intent(otaAction).apply {
-                    setPackage(packageName)
-                    putExtra("panglink_ota_token", sessionToken)
+                    val sessionToken = UUID.randomUUID().toString()
+                    otaSessionToken = sessionToken
+                    val callbackIntent = Intent(otaAction).apply {
+                        setPackage(packageName)
+                        putExtra("panglink_ota_token", sessionToken)
+                    }
+                    val pendingFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                    } else {
+                        PendingIntent.FLAG_UPDATE_CURRENT
+                    }
+                    val pendingIntent = PendingIntent.getBroadcast(this@MainActivity, createdSessionId, callbackIntent, pendingFlags)
+                    pushOtaStatusToWeb(100, "COMPLETE", "Pembaruan terverifikasi. Konfirmasikan pemasangan di installer Android.")
+                    session.commit(pendingIntent.intentSender)
+                    committed = true
                 }
-                val pendingFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-                } else {
-                    PendingIntent.FLAG_UPDATE_CURRENT
+            } catch (e: Exception) {
+                failOtaUpdate(update, "Gagal memasang pembaruan: ${e.message}")
+            } finally {
+                if (!committed) {
+                    sessionId?.let { try { packageInstaller.abandonSession(it) } catch (_: Exception) {} }
                 }
-                val pendingIntent = PendingIntent.getBroadcast(this@MainActivity, sessionId, callbackIntent, pendingFlags)
-                session.commit(pendingIntent.intentSender)
-                session.close()
-            } catch (e: Throwable) {
-                pushOtaStatusToWeb(0, "ERROR", "Gagal membuka installer: ${e.message}")
-                Toast.makeText(this@MainActivity, "Gagal membuka installer: ${e.message}", Toast.LENGTH_LONG).show()
+                update.file.delete()
             }
+        }.start()
+    }
+
+    private fun verifyUpdate(update: PendingUpdate) {
+        check(update.file.canonicalFile.parentFile == File(cacheDir, "ota").canonicalFile &&
+            update.file.isFile && update.file.length() in 50_000L..UpdateDownloader.MAX_APK_BYTES
+        ) { "File APK privat tidak ditemukan atau tidak utuh." }
+        check(UpdatePolicy.isValidSha256(update.sha256) && sha256Of(update.file) == update.sha256) {
+            "Checksum APK tidak cocok. Unduh pembaruan kembali."
+        }
+        @Suppress("DEPRECATION")
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES
+        val archive = packageManager.getPackageArchiveInfo(update.file.absolutePath, flags)
+            ?: error("File bukan APK yang valid.")
+        val installed = packageManager.getPackageInfo(packageName, flags)
+        check(UpdatePolicy.isNewerOwnPackage(packageName, packageVersionCode(installed), archive.packageName, packageVersionCode(archive))) {
+            "APK harus pembaruan PangLink dengan versionCode lebih baru."
+        }
+        val installedSigners = signatureSha256Set(installed)
+        check(installedSigners.isNotEmpty() && signatureSha256Set(archive) == installedSigners) {
+            "Sertifikat APK berbeda dari aplikasi terpasang."
         }
     }
 
-    private fun isAllowedUpdateUrl(rawUrl: String): Boolean {
-        return try {
-            val url = URL(rawUrl)
-            if (url.protocol != "https") return false
-            val host = url.host?.lowercase() ?: return false
-            if (host != "github.com" && !host.endsWith(".githubusercontent.com")) return false
-            (url.path ?: "").lowercase().endsWith(".apk")
-        } catch (_: Throwable) {
-            false
-        }
+    private fun packageVersionCode(info: PackageInfo): Long = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        info.longVersionCode
+    } else {
+        @Suppress("DEPRECATION")
+        info.versionCode.toLong()
     }
 
     private fun sha256Of(file: File): String {
@@ -323,7 +381,7 @@ class MainActivity : Activity() {
     private fun signatureSha256Set(info: PackageInfo): Set<String> {
         val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             val signingInfo = info.signingInfo ?: return emptySet()
-            if (signingInfo.hasMultipleSigners()) signingInfo.apkContentsSigners else signingInfo.signingCertificateHistory
+            signingInfo.apkContentsSigners
         } else {
             @Suppress("DEPRECATION")
             info.signatures ?: return emptySet()
@@ -333,24 +391,6 @@ class MainActivity : Activity() {
                 .digest(signature.toByteArray())
                 .joinToString("") { (it.toInt() and 0xFF).toString(16).padStart(2, '0') }
         }.toSet()
-    }
-
-    private fun apkSignerMatchesInstalled(apkFile: File): Boolean {
-        return try {
-            @Suppress("DEPRECATION")
-            val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                PackageManager.GET_SIGNING_CERTIFICATES
-            } else {
-                PackageManager.GET_SIGNATURES
-            }
-            val archiveInfo = packageManager.getPackageArchiveInfo(apkFile.absolutePath, flags) ?: return false
-            val installedInfo = packageManager.getPackageInfo(packageName, flags)
-            val archiveSigners = signatureSha256Set(archiveInfo)
-            val installedSigners = signatureSha256Set(installedInfo)
-            archiveSigners.isNotEmpty() && installedSigners.isNotEmpty() && archiveSigners.any { it in installedSigners }
-        } catch (_: Throwable) {
-            false
-        }
     }
 
     inner class CompanionBridge(private val context: Context) {
@@ -397,123 +437,49 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
+        fun getOtaRepository(): String = BuildConfig.OTA_REPOSITORY
+
+        @JavascriptInterface
         fun startUpdateDownload(apkUrl: String) {
             startUpdateDownloadWithHash(apkUrl, "")
         }
 
         @JavascriptInterface
         fun startUpdateDownloadWithHash(apkUrl: String, expectedSha256: String) {
-            if (isOtaDownloadingNow) return
-            if (!isAllowedUpdateUrl(apkUrl)) {
+            if (!updatePolicy.isAllowedReleaseUrl(apkUrl)) {
                 pushOtaStatusToWeb(0, "ERROR", "Alamat unduhan APK tidak diizinkan.")
                 return
             }
 
-            isOtaDownloadingNow = true
+            val expectedHash = expectedSha256.trim().lowercase()
+            if (!UpdatePolicy.isValidSha256(expectedHash)) {
+                pushOtaStatusToWeb(0, "ERROR", "Checksum SHA-256 pembaruan wajib tersedia.")
+                return
+            }
+            if (!otaBusy.compareAndSet(false, true)) return
             pushOtaStatusToWeb(4, "DOWNLOADING", "Menghubungi server GitHub Release...")
 
             Thread {
+                var update: PendingUpdate? = null
                 try {
-                    val outDir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: cacheDir
-                    if (!outDir.exists()) outDir.mkdirs()
-                    val targetFile = File(outDir, "PangLink_Update.apk")
-                    if (targetFile.exists()) targetFile.delete()
-
-                    var currentUrl = apkUrl
-                    var connection: HttpURLConnection? = null
-                    var redirectCount = 0
-
-                    while (redirectCount < 6) {
-                        val urlObj = URL(currentUrl)
-                        val conn = (urlObj.openConnection() as HttpURLConnection).apply {
-                            connectTimeout = 20000
-                            readTimeout = 30000
-                            instanceFollowRedirects = true
-                            requestMethod = "GET"
-                            setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 13; PangLink-OTA) AppleWebKit/537.36")
-                            setRequestProperty("Accept", "application/octet-stream, application/vnd.android.package-archive, */*")
-                        }
-                        conn.connect()
-                        val code = conn.responseCode
-                        if (code in listOf(
-                                HttpURLConnection.HTTP_MOVED_PERM,
-                                HttpURLConnection.HTTP_MOVED_TEMP,
-                                HttpURLConnection.HTTP_SEE_OTHER,
-                                307,
-                                308
-                            )
-                        ) {
-                            val nextLoc = conn.getHeaderField("Location")
-                            conn.disconnect()
-                            if (nextLoc.isNullOrBlank()) break
-                            currentUrl = nextLoc
-                            redirectCount++
-                        } else {
-                            connection = conn
-                            break
-                        }
-                    }
-
-                    val finalConn = connection ?: throw Exception("Tidak dapat terhubung ke server unduhan")
-                    if (finalConn.responseCode != HttpURLConnection.HTTP_OK) {
-                        val errCode = finalConn.responseCode
-                        finalConn.disconnect()
-                        throw Exception("Server mengembalikan status HTTP $errCode (Pastikan repositori publik & rilis APK tersedia)")
-                    }
-
-                    val totalBytes = finalConn.contentLengthLong
-                    var downloadedBytes = 0L
+                    val outDir = File(cacheDir, "ota")
+                    check(outDir.isDirectory || outDir.mkdirs()) { "Folder cache pembaruan tidak tersedia." }
+                    val targetFile = File.createTempFile("PangLink_Update_", ".apk", outDir)
+                    val candidate = PendingUpdate(targetFile, expectedHash)
+                    update = candidate
                     var lastReportTime = 0L
-
-                    finalConn.inputStream.use { input ->
-                        FileOutputStream(targetFile).use { output ->
-                            val buffer = ByteArray(32768)
-                            var read: Int
-                            while (input.read(buffer).also { read = it } != -1) {
-                                output.write(buffer, 0, read)
-                                downloadedBytes += read
-                                val now = SystemClock.uptimeMillis()
-                                if (now - lastReportTime > 180L) {
-                                    lastReportTime = now
-                                    val pct = if (totalBytes > 0) {
-                                        ((downloadedBytes * 100L) / totalBytes).toInt().coerceIn(5, 99)
-                                    } else {
-                                        50
-                                    }
-                                    val mbDown = String.format(java.util.Locale.US, "%.2f", downloadedBytes / (1024.0 * 1024.0))
-                                    val mbTot = if (totalBytes > 0) String.format(java.util.Locale.US, " / %.2f MB", totalBytes / (1024.0 * 1024.0)) else " MB"
-                                    pushOtaStatusToWeb(pct, "DOWNLOADING", "Mengunduh PangLink APK... ($pct% • $mbDown$mbTot)")
-                                }
-                            }
-                            output.flush()
+                    UpdateDownloader(updatePolicy).download(apkUrl, expectedHash, targetFile) { downloadedBytes, totalBytes ->
+                        val now = SystemClock.uptimeMillis()
+                        if (now - lastReportTime > 180L) {
+                            lastReportTime = now
+                            val pct = if (totalBytes > 0) ((downloadedBytes * 100L) / totalBytes).toInt().coerceIn(5, 99) else 50
+                            pushOtaStatusToWeb(pct, "DOWNLOADING", "Mengunduh PangLink APK... ($pct%)")
                         }
                     }
-                    finalConn.disconnect()
-
-                    if (!targetFile.exists() || targetFile.length() < 50_000L) {
-                        throw Exception("File APK hasil unduhan tidak lengkap (${targetFile.length()} bytes)")
-                    }
-
-                    val expectedHash = expectedSha256.trim().lowercase()
-                    if (expectedHash.matches(Regex("^[a-f0-9]{64}$"))) {
-                        val actualHash = sha256Of(targetFile)
-                        if (actualHash != expectedHash) {
-                            targetFile.delete()
-                            throw Exception("Checksum APK tidak cocok. Unduhan dibatalkan demi keamanan.")
-                        }
-                    }
-
-                    if (!apkSignerMatchesInstalled(targetFile)) {
-                        targetFile.delete()
-                        throw Exception("Sertifikat APK berbeda dengan aplikasi terpasang. Lakukan instal ulang manual satu kali.")
-                    }
-
-                    isOtaDownloadingNow = false
-                    pushOtaStatusToWeb(100, "COMPLETE", "Unduhan selesai 100%! Membuka penginstal Android...")
-                    installApkFromFile(targetFile)
-                } catch (e: Throwable) {
-                    isOtaDownloadingNow = false
-                    pushOtaStatusToWeb(0, "ERROR", "Unduhan gagal: ${e.message}")
+                    pushOtaStatusToWeb(99, "DOWNLOADING", "Memverifikasi identitas APK...")
+                    installApkFromFile(candidate)
+                } catch (e: Exception) {
+                    failOtaUpdate(update, "Unduhan gagal: ${e.message}")
                 }
             }.start()
         }

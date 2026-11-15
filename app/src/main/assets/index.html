@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Content-Security-Policy" content="frame-src 'none'; child-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
     <title>PANGLINK - Companion App</title>
     <!-- Aset lokal: UI tetap tampil walau HP offline -->
     <script src="vendor/tailwind.js"></script>
@@ -1442,8 +1443,8 @@
 
             boxBody.innerHTML = top3.map((t, idx) => {
                 const dayLbl = formatDayLabelForTrip(t.dateIso);
-                const startStr = (t.startTime || '00.00').replace(':', '.');
-                const endStr = (t.endTime || '00.00').replace(':', '.');
+                const startStr = String(t.startTime || '00.00').replace(':', '.');
+                const endStr = String(t.endTime || '00.00').replace(':', '.');
                 const distStr = formatKmDisplay(t.distanceKm);
                 const durMin = Math.max(1, parseInt(t.durationMinutes || 1));
                     const avgSpd = getTripAverageSpeed(t) ? ` • Rata ${getTripAverageSpeed(t)} km/j` : '';
@@ -1452,15 +1453,15 @@
                 const hasRoute = !!t.route;
 
                 return `
-                    <div onclick="openTripRouteModal('${encodeURIComponent(t.tripId || '')}')" class="px-5 py-4 ${borderCls} hover:bg-zinc-900/40 transition cursor-pointer">
+                    <div data-trip-id="${escapeHtml(encodeURIComponent(t.tripId || ''))}" onclick="openTripRouteModal(this.dataset.tripId)" class="px-5 py-4 ${borderCls} hover:bg-zinc-900/40 transition cursor-pointer">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
                                 <div class="font-mono-tech text-lg font-extrabold text-white tracking-wider">
-                                    <span>${dayLbl}</span>
-                                    <span class="ml-3">${startStr} - ${endStr}</span>
+                                    <span>${escapeHtml(dayLbl)}</span>
+                                    <span class="ml-3">${escapeHtml(startStr)} - ${escapeHtml(endStr)}</span>
                                 </div>
                                 <div class="font-mono-tech text-sm text-zinc-400 mt-1">
-                                    ${distStr} km &nbsp;&bull;&nbsp; ${durMin} mnt<span class="text-xs text-zinc-500">${avgSpd}${maxSpd}</span>
+                                    ${distStr} km &nbsp;&bull;&nbsp; ${durMin} mnt<span class="text-xs text-zinc-500">${escapeHtml(avgSpd)}${escapeHtml(maxSpd)}</span>
                                 </div>
                             </div>
                             <span class="shrink-0 font-mono-tech text-[10px] font-extrabold tracking-wider ${hasRoute ? 'text-[#00E5FF]' : 'text-zinc-600'}">
@@ -1529,7 +1530,7 @@
                     <div class="trip-box rounded-lg p-8 text-center">
                         <div class="font-mono-tech text-sm font-bold text-zinc-300">TIDAK ADA DATA PERJALANAN</div>
                         <div class="font-mono-tech text-xs text-zinc-500 mt-1">
-                            ${dateQuery ? 'Tidak ada perjalanan pada tanggal ' + dateQuery : 'Belum ada riwayat perjalanan yang tercatat dari Headunit.'}
+                            ${dateQuery ? 'Tidak ada perjalanan pada tanggal ' + escapeHtml(dateQuery) : 'Belum ada riwayat perjalanan yang tercatat dari Headunit.'}
                         </div>
                     </div>
                 `;
@@ -1554,8 +1555,8 @@
                 const totalDayKm = dayTrips.reduce((sum, item) => sum + Number(item.distanceKm || 0), 0);
 
                 const rowsHtml = dayTrips.map((t, idx) => {
-                    const startStr = (t.startTime || '00.00').replace(':', '.');
-                    const endStr = (t.endTime || '00.00').replace(':', '.');
+                    const startStr = String(t.startTime || '00.00').replace(':', '.');
+                    const endStr = String(t.endTime || '00.00').replace(':', '.');
                     const distStr = formatKmDisplay(t.distanceKm);
                     const durMin = Math.max(1, parseInt(t.durationMinutes || 1));
                     const avgSpd = getTripAverageSpeed(t) ? `Rata ${getTripAverageSpeed(t)} km/j` : '';
@@ -1565,10 +1566,10 @@
                     const hasRoute = !!t.route;
 
                     return `
-                        <div onclick="openTripRouteModal('${encodeURIComponent(t.tripId || '')}')" class="px-4 py-3.5 ${borderTop} hover:bg-zinc-900/60 transition cursor-pointer">
+                        <div data-trip-id="${escapeHtml(encodeURIComponent(t.tripId || ''))}" onclick="openTripRouteModal(this.dataset.tripId)" class="px-4 py-3.5 ${borderTop} hover:bg-zinc-900/60 transition cursor-pointer">
                             <div class="flex justify-between items-center gap-2">
                                 <div class="font-mono-tech text-base font-extrabold text-white tracking-wider">
-                                    ${startStr} - ${endStr}
+                                    ${escapeHtml(startStr)} - ${escapeHtml(endStr)}
                                 </div>
                                 <div class="flex items-center gap-2 shrink-0">
                                     ${catBadge}
@@ -1582,7 +1583,7 @@
                                     ${distStr} km &nbsp;&bull;&nbsp; ${durMin} mnt
                                 </div>
                                 <div class="font-mono-tech text-[10px] text-zinc-500">
-                                    ${[avgSpd, maxSpd].filter(Boolean).join(' • ')}
+                                    ${escapeHtml([avgSpd, maxSpd].filter(Boolean).join(' • '))}
                                 </div>
                             </div>
                         </div>
@@ -1592,7 +1593,7 @@
                 return `
                     <div>
                         <div class="flex justify-between items-center mb-2 px-0.5">
-                            <span class="font-mono-tech text-xs font-bold tracking-widest text-zinc-400 uppercase">${dayTitle}</span>
+                            <span class="font-mono-tech text-xs font-bold tracking-widest text-zinc-400 uppercase">${escapeHtml(dayTitle)}</span>
                             <span class="font-mono-tech text-xs text-zinc-500">${dayTrips.length} perjalanan &bull; ${formatKmDisplay(totalDayKm)} km</span>
                         </div>
                         <div class="trip-box rounded-md overflow-hidden">
@@ -1616,7 +1617,7 @@
                 const cls = isActive
                     ? 'px-3.5 py-1.5 bg-[#00E5FF] text-black rounded-xl whitespace-nowrap shadow'
                     : 'px-3.5 py-1.5 bg-zinc-900 text-zinc-400 border border-zinc-800 rounded-xl whitespace-nowrap';
-                return `<button onclick="selectVehicle('${code}')" class="${cls}">🚗 ${escapeHtml(car.vehicleName)} <span class="opacity-70 text-[10px]">(${escapeHtml(car.pairingCode || code)})</span></button>`;
+                return `<button data-car-id="${escapeHtml(code)}" onclick="selectVehicle(this.dataset.carId)" class="${cls}">🚗 ${escapeHtml(car.vehicleName)} <span class="opacity-70 text-[10px]">(${escapeHtml(car.pairingCode || code)})</span></button>`;
             }).join('') + `<button onclick="openAccountModal()" class="px-3 py-1.5 bg-zinc-900/60 text-[#00E5FF] border border-[#00E5FF]/30 rounded-xl whitespace-nowrap">+ Mobil Baru</button>`;
             renderPairedCarsList();
         }
@@ -2157,11 +2158,11 @@
                 const isActive = car.carId === activeCarCode;
                 return `
                     <div class="flex items-center justify-between gap-2 p-2.5 rounded-xl ${isActive ? 'bg-[#00E5FF]/10 border border-[#00E5FF]/40' : 'bg-black/60 border border-zinc-800'}">
-                        <button onclick="selectVehicle('${car.carId}')" class="flex-1 text-left min-w-0">
+                        <button data-car-id="${escapeHtml(car.carId)}" onclick="selectVehicle(this.dataset.carId)" class="flex-1 text-left min-w-0">
                             <div class="text-[11px] font-extrabold text-white truncate">${escapeHtml(car.vehicleName)}</div>
                             <div class="text-[9px] font-mono-tech text-zinc-500 truncate">${escapeHtml(car.pairingCode || car.carId)}</div>
                         </button>
-                        <button onclick="deleteVehicle('${car.carId}')" class="px-2.5 py-1.5 rounded-lg bg-red-900/40 border border-red-900/60 text-red-300 text-[10px] font-extrabold">HAPUS</button>
+                        <button data-car-id="${escapeHtml(car.carId)}" onclick="deleteVehicle(this.dataset.carId)" class="px-2.5 py-1.5 rounded-lg bg-red-900/40 border border-red-900/60 text-red-300 text-[10px] font-extrabold">HAPUS</button>
                     </div>
                 `;
             }).join('');
@@ -2745,7 +2746,7 @@
                     ? `Sisa ${formatDotNumber(m.rKm)} km`
                     : `Sisa ${formatDotNumber(m.rDays)} hari`;
                 return `
-                    <div onclick="openServiceCompDetail('${comp.id}')" style="background:#1c1c1e; border:1px solid rgba(255,255,255,0.08); border-radius:20px; padding:14px 10px; display:flex; flex-direction:column; align-items:center; justify-content:space-between; min-height:148px; cursor:pointer; transition:transform 0.15s;" onmouseover="this.style.borderColor='rgba(0,229,255,0.5)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.08)'">
+                    <div data-component-id="${escapeHtml(comp.id)}" onclick="openServiceCompDetail(this.dataset.componentId)" style="background:#1c1c1e; border:1px solid rgba(255,255,255,0.08); border-radius:20px; padding:14px 10px; display:flex; flex-direction:column; align-items:center; justify-content:space-between; min-height:148px; cursor:pointer; transition:transform 0.15s;" onmouseover="this.style.borderColor='rgba(0,229,255,0.5)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.08)'">
                         <div style="font-size:13px; font-weight:800; color:#fff; text-align:center; line-height:1.25; height:32px; display:flex; align-items:center; justify-content:center;">${escapeHtml(comp.name)}</div>
                         <div style="margin:6px 0;">
                             ${getServiceComponentSvg(comp.iconKey, m.color)}
@@ -3142,12 +3143,7 @@
         // =========================================================================
         const BUILTIN_GITHUB_REPO = '__AUTO_GITHUB_REPO__';
         const OTA_FALLBACK_REPO = 'rakamartha/app-headunit';
-        const OTA_ALLOWED_HOSTS = [
-            'github.com',
-            'objects.githubusercontent.com',
-            'release-assets.githubusercontent.com',
-            'github-releases.githubusercontent.com'
-        ];
+        const OTA_APK_NAME = 'PangLink-Companion-App.apk';
         const OTA_AUTO_CHECK_KEY = 'gc_hp_last_ota_check_v1';
         const OTA_CACHE_KEY = 'gc_hp_ota_release_v1';
         let pendingOtaApkUrl = '';
@@ -3157,8 +3153,15 @@
         let otaBarState = 'IDLE';
 
         function getOtaRepo() {
+            // Native menjadi sumber utama, termasuk build lokal dan fork CI.
+            if (window.AndroidBridge && window.AndroidBridge.getOtaRepository) {
+                try {
+                    const nativeRepo = String(window.AndroidBridge.getOtaRepository());
+                    return /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(nativeRepo) ? nativeRepo : '';
+                } catch (_e) { return ''; }
+            }
             const injected = String(BUILTIN_GITHUB_REPO || '');
-            if (injected && !injected.includes('__AUTO_') && !injected.includes('${') && injected.includes('/')) {
+            if (/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(injected)) {
                 return injected;
             }
             return OTA_FALLBACK_REPO;
@@ -3183,17 +3186,19 @@
             return code;
         }
 
-        function isValidApkDownloadUrl(url) {
+        function isValidReleaseAssetUrl(url, assetName) {
             if (!url || typeof url !== 'string') return false;
-            if (url.includes('${') || url.includes('__AUTO_')) return false;
-            try {
-                const parsed = new URL(url);
-                if (parsed.protocol !== 'https:') return false;
-                if (!OTA_ALLOWED_HOSTS.includes(parsed.hostname.toLowerCase())) return false;
-                return parsed.pathname.toLowerCase().endsWith('.apk');
-            } catch (_e) {
-                return false;
-            }
+            const repo = getOtaRepo();
+            if (!repo) return false;
+            const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            // Periksa URL mentah, sebelum normalisasi URL dapat menyembunyikan traversal.
+            const pattern = new RegExp('^https://github[.]com/' + escapeRegex(repo) +
+                '/releases/download/(?![.]{1,2}/)[A-Za-z0-9_.-]+/' + escapeRegex(assetName) + '$');
+            return pattern.test(url);
+        }
+
+        function isValidApkDownloadUrl(url) {
+            return isValidReleaseAssetUrl(url, OTA_APK_NAME);
         }
 
         function normalizeSha256(value) {
@@ -3260,7 +3265,7 @@
             } else {
                 dot.className += 'bg-emerald-400';
                 title.innerText = 'PangLink v' + current;
-                sub.innerText = 'Pembaruan aplikasi otomatis';
+                sub.innerText = 'Pemeriksaan pembaruan otomatis';
                 btn.innerText = 'PERIKSA';
                 btn.className += 'bg-zinc-800 border-zinc-700 text-[#00E5FF]';
             }
@@ -3304,18 +3309,20 @@
         }
 
         async function fetchOtaChecksum(release) {
-            const apkAsset = release.assets.find(a => a.name && a.name.toLowerCase().endsWith('.apk'));
-            if (!apkAsset) return '';
+            const assets = Array.isArray(release.assets) ? release.assets : [];
+            const apkAsset = assets.find(a => a.name === OTA_APK_NAME);
+            if (!apkAsset || !isValidApkDownloadUrl(apkAsset.browser_download_url)) return '';
             const direct = normalizeSha256(apkAsset.digest || '');
             if (direct) return direct;
-            const checksumAsset = release.assets.find(a => a.name && a.name.toLowerCase().endsWith('.sha256'));
-            if (!checksumAsset) return '';
+            const checksumAsset = assets.find(a => a.name === OTA_APK_NAME + '.sha256');
+            if (!checksumAsset || checksumAsset.browser_download_url !== apkAsset.browser_download_url + '.sha256' ||
+                !isValidReleaseAssetUrl(checksumAsset.browser_download_url, OTA_APK_NAME + '.sha256')) return '';
             try {
                 const res = await fetch(checksumAsset.browser_download_url, { cache: 'no-store' });
                 if (!res.ok) return '';
                 const text = await res.text();
-                const match = text.match(/[a-fA-F0-9]{64}/);
-                return match ? match[0].toLowerCase() : '';
+                const match = text.trim().match(/^([a-fA-F0-9]{64})[ \t]+\*?(?:dist_apk\/)?PangLink-Companion-App\.apk$/);
+                return match ? match[1].toLowerCase() : '';
             } catch (_e) {
                 return '';
             }
@@ -3349,6 +3356,7 @@
             try {
                 const res = await fetch('https://api.github.com/repos/' + repo + '/releases/latest', {
                     cache: 'no-store',
+                    redirect: 'error',
                     headers: { 'Accept': 'application/vnd.github+json' }
                 });
                 if (res.status === 404) {
@@ -3358,7 +3366,7 @@
                     errorMessage = 'GitHub mengembalikan HTTP ' + res.status;
                 } else {
                     const data = await res.json();
-                    const apkAsset = data.assets && data.assets.find(a => a.name && a.name.toLowerCase().endsWith('.apk'));
+                    const apkAsset = Array.isArray(data.assets) && data.assets.find(a => a.name === OTA_APK_NAME);
                     if (apkAsset && isValidApkDownloadUrl(apkAsset.browser_download_url)) {
                         const rawTag = String(data.tag_name || 'v' + currentVersion);
                         const verPart = rawTag.split('-b')[0].replace(/^v/i, '');
@@ -3371,6 +3379,7 @@
                             assets: data.assets || []
                         };
                         foundRelease.sha256 = await fetchOtaChecksum(data);
+                        if (!foundRelease.sha256) errorMessage = 'Rilis tidak memiliki checksum SHA-256 yang valid';
                     } else {
                         errorMessage = 'Rilis terbaru tidak memiliki APK yang valid';
                     }
@@ -3388,6 +3397,10 @@
             try { localStorage.setItem(OTA_AUTO_CHECK_KEY, String(Date.now())); } catch (_e) {}
 
             if (errorMessage) {
+                pendingOtaInfo = null;
+                pendingOtaApkUrl = '';
+                pendingOtaSha256 = '';
+                try { localStorage.removeItem(OTA_CACHE_KEY); } catch (_e) {}
                 setUpdateBarState('ERROR', { message: errorMessage });
                 if (!silent) {
                     closeOtaModal();
@@ -3396,7 +3409,7 @@
                 return;
             }
 
-            const hasUpdate = foundRelease && isValidApkDownloadUrl(foundRelease.apkUrl) && (
+            const hasUpdate = foundRelease && isValidApkDownloadUrl(foundRelease.apkUrl) && normalizeSha256(foundRelease.sha256) && (
                 (foundRelease.versionCode > 0 && foundRelease.versionCode > currentCode) ||
                 (foundRelease.versionCode === 0 && isNewerVersion(currentVersion, foundRelease.version))
             );
@@ -3438,19 +3451,18 @@
         }
 
         function startOtaDownload() {
-            if (!isValidApkDownloadUrl(pendingOtaApkUrl)) {
-                showToast('File APK pembaruan tidak valid');
+            const checksum = normalizeSha256(pendingOtaSha256);
+            if (!isValidApkDownloadUrl(pendingOtaApkUrl) || !checksum) {
+                showToast('Sumber APK atau checksum pembaruan tidak valid. Periksa pembaruan kembali.');
+                return;
+            }
+            if (!window.AndroidBridge || !window.AndroidBridge.startUpdateDownloadWithHash) {
+                showToast('Pembaruan terverifikasi hanya tersedia di aplikasi PangLink');
                 return;
             }
             setOtaModalView('DOWNLOADING');
             setUpdateBarState('DOWNLOADING', { message: 'Menyiapkan unduhan APK' });
-            if (window.AndroidBridge && window.AndroidBridge.startUpdateDownloadWithHash) {
-                window.AndroidBridge.startUpdateDownloadWithHash(pendingOtaApkUrl, pendingOtaSha256 || '');
-            } else if (window.AndroidBridge && window.AndroidBridge.startUpdateDownload) {
-                window.AndroidBridge.startUpdateDownload(pendingOtaApkUrl);
-            } else {
-                window.open(pendingOtaApkUrl, '_blank');
-            }
+            window.AndroidBridge.startUpdateDownloadWithHash(pendingOtaApkUrl, checksum);
         }
 
         window.onNativeOtaProgress = function(pct, state, message) {
@@ -3483,7 +3495,7 @@
             try { cached = JSON.parse(localStorage.getItem(OTA_CACHE_KEY) || 'null'); } catch (_e) {}
             const currentVersion = getCurrentAppVersion();
             const currentCode = getCurrentAppVersionCode();
-            if (cached && isValidApkDownloadUrl(cached.apkUrl) && (
+            if (cached && isValidApkDownloadUrl(cached.apkUrl) && normalizeSha256(cached.sha256) && (
                 (cached.versionCode > 0 && cached.versionCode > currentCode) ||
                 (cached.versionCode === 0 && isNewerVersion(currentVersion, cached.version))
             )) {
@@ -3492,6 +3504,7 @@
                 pendingOtaSha256 = normalizeSha256(cached.sha256 || '');
                 setUpdateBarState('UPDATE', cached);
             } else {
+                try { localStorage.removeItem(OTA_CACHE_KEY); } catch (_e) {}
                 setUpdateBarState('IDLE');
             }
 

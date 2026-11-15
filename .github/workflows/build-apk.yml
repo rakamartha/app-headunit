@@ -124,6 +124,10 @@ jobs:
             GRADLE_ARGS="$GRADLE_ARGS -PversionNameOverride=$VERSION_NAME"
           fi
           chmod +x gradlew
+          node scripts/test-ota.cjs
+          # Kebijakan URL/checksum dan lint wajib lolos sebelum artifact/rilis dibuat.
+          # shellcheck disable=SC2086
+          ./gradlew :app:testDebugUnitTest :app:lintDebug $GRADLE_ARGS --stacktrace
           if [ "${{ steps.keystore.outputs.signed }}" = "true" ]; then
             # shellcheck disable=SC2086
             ./gradlew assembleRelease $GRADLE_ARGS --stacktrace

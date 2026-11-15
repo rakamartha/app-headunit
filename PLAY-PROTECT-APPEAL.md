@@ -14,14 +14,15 @@ Versi yang **paling layak** diunggah ke VirusTotal dan dipakai di formulir adala
 
 | Item | Nilai |
 |---|---|
-| Versi | 1.2 (versionCode 11) |
-| Ukuran | 980.698 byte |
-| SHA-256 APK | `bd2bc488baee506ae952c0ce40b483b5f5c0588b0c1281ba0f8afcae11bd44d3` |
+| Versi | 1.2 (versionCode 12) |
+| Ukuran | 981.242 byte |
+| SHA-256 APK | `69877e623f97082a2698378aa107edd8c7db477e2e939ddf3b0c1a498677a6c1` |
 | Tanda tangan | v2 + v3, sertifikat `196b4a0a…738d` |
-| Rilis | <https://github.com/rakamartha/app-headunit/releases/tag/v1.2-b11> |
+| Rilis | <https://github.com/rakamartha/app-headunit/releases/tag/v1.2-b12> |
 
 Bagian 1 di bawah tetap menyimpan fakta b10 (APK yang memunculkan peringatan). Jika formulir hanya menerima satu APK,
-pakai **b11** dan sesuaikan versi/hash/sumber di teks formulir. Jika Google meminta APK yang persis diblokir, gunakan b10.
+pakai **b12** dan sesuaikan versi/hash/sumber di teks formulir. Jika Google meminta APK yang persis diblokir, gunakan b10.
+Hash b11 (`bd2bc488…44d3`, 980.698 byte) tetap dicatat sebagai pembanding bila laporan sebelumnya sudah memakai b11.
 
 ---
 

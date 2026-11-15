@@ -8,6 +8,21 @@
 > Jangan menulis "false positive" sebagai kepastian. Sampaikan bahwa aplikasi sudah diaudit, tidak memuat perilaku berbahaya,
 > dan minta peninjauan ulang. Jangan mengunggah/berbagi keystore, password, atau kunci API ke mana pun.
 
+## 0. APK terbaru untuk banding (disarankan)
+
+Versi yang **paling layak** diunggah ke VirusTotal dan dipakai di formulir adalah build perbaikan terbaru:
+
+| Item | Nilai |
+|---|---|
+| Versi | 1.2 (versionCode 11) |
+| Ukuran | 980.698 byte |
+| SHA-256 APK | `bd2bc488baee506ae952c0ce40b483b5f5c0588b0c1281ba0f8afcae11bd44d3` |
+| Tanda tangan | v2 + v3, sertifikat `196b4a0a…738d` |
+| Rilis | <https://github.com/rakamartha/app-headunit/releases/tag/v1.2-b11> |
+
+Bagian 1 di bawah tetap menyimpan fakta b10 (APK yang memunculkan peringatan). Jika formulir hanya menerima satu APK,
+pakai **b11** dan sesuaikan versi/hash/sumber di teks formulir. Jika Google meminta APK yang persis diblokir, gunakan b10.
+
 ---
 
 ## 1. Fakta APK yang diblokir

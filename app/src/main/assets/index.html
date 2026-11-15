@@ -2280,6 +2280,26 @@
             }
         }
 
+        // Tombol kembali Android mengikuti urutan halaman dan dialog di aplikasi.
+        window.handleNativeBack = function() {
+            function visible(id) {
+                const el = document.getElementById(id);
+                return !!el && !el.classList.contains('hidden') && !el.classList.contains('hidden-tab');
+            }
+            if (visible('ota-update-modal')) { closeOtaModal(); return true; }
+            if (visible('trip-route-overlay')) { closeTripRouteModal(); return true; }
+            if (visible('all-trips-overlay')) { closeAllTripsModal(); return true; }
+            if (visible('account-modal')) { closeAccountModal(); return true; }
+            if (visible('view-servis') && visible('srv-add-comp-modal')) { closeAddServiceCompModal(); return true; }
+            if (visible('view-servis') && visible('srv-detail-view')) {
+                if (visible('srv-card-edit-mode')) cancelAdjustAgeEditor();
+                else closeServiceCompDetail();
+                return true;
+            }
+            if (!visible('view-garasi')) { switchTab('garasi'); return true; }
+            return false;
+        };
+
         function switchTab(tabName) {
             const tabs = ['garasi', 'statistik', 'servis'];
             tabs.forEach(t => {

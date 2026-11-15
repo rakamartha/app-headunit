@@ -42,6 +42,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class MainActivity : Activity() {
 
     private var webView: WebView? = null
+    private var backNavigationPending = false
     private var connectivityManager: ConnectivityManager? = null
 
     private data class PendingUpdate(val file: File, val sha256: String)
@@ -173,6 +174,30 @@ class MainActivity : Activity() {
             registerReceiver(otaDownloadReceiver, IntentFilter(otaAction))
         }
         window?.decorView?.post { hideSystemUI() }
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onBackPressed() {
+        val view = webView
+        if (view == null) {
+            super.onBackPressed()
+            return
+        }
+        if (backNavigationPending) return
+        backNavigationPending = true
+        try {
+            view.evaluateJavascript(
+                "typeof window.handleNativeBack === 'function' && window.handleNativeBack() === true"
+            ) { handled ->
+                backNavigationPending = false
+                if (handled != "true" && !isFinishing && !isDestroyed) {
+                    super.onBackPressed()
+                }
+            }
+        } catch (_: Throwable) {
+            backNavigationPending = false
+            super.onBackPressed()
+        }
     }
 
     private fun registerAutoNetworkSync() {
